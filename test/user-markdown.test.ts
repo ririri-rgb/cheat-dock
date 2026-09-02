@@ -24,20 +24,24 @@ const custom: CheatSheet = {
     id: 'deploy', title: 'Deploy', localizedTitles: { ja: 'デプロイ' }, userOwned: true,
     items: [{
       id: 'user-deploy', title: 'Production deploy', localizedTitles: { ja: '本番デプロイ' },
-      kind: 'command', command: 'make deploy-prod', shortcut: 'Command + Shift + P',
-      description: 'Production deploy command.', aliases: ['deploy'], tags: ['prod'], userOwned: true
+      kind: 'command', command: 'printf "a  b" && make deploy-prod', shortcut: 'Command + Shift + P',
+      description: 'Production  deploy command.', aliases: ['deploy'], tags: ['prod'], userOwned: true
     }]
   }]
 };
 
-test('custom Sheet Markdown round-trips human-readable fields and raw shortcut', () => {
+test('custom Sheet Markdown round-trips raw command spacing and raw shortcut without glyph persistence', () => {
   const markdown = serializeUserSheet(custom);
   assert.match(markdown, /title: Project A/);
   assert.match(markdown, /shortcut: Command \+ Shift \+ P/);
+  assert.match(markdown, /command: printf "a  b" && make deploy-prod/);
+  assert.match(markdown, /description: Production  deploy command\./);
   assert.doesNotMatch(markdown, /⌘/);
   const parsed = validateUserMarkdown({ kind: 'sheet', id: custom.id, content: markdown }, builtins);
   assert.equal(parsed.sections[0]?.localizedTitles?.ja, 'デプロイ');
   assert.equal(parsed.sections[0]?.items[0]?.shortcut, 'Command + Shift + P');
+  assert.equal(parsed.sections[0]?.items[0]?.command, 'printf "a  b" && make deploy-prod');
+  assert.equal(parsed.sections[0]?.items[0]?.description, 'Production  deploy command.');
   assert.equal(canonicalDocumentContent({ kind: 'sheet', id: custom.id, content: markdown }, builtins), markdown);
 });
 

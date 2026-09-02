@@ -19,6 +19,8 @@ export interface UiText {
   manageSheet: string;
   renameSheet: string;
   deleteSheet: string;
+  reloadFiles: string;
+  dataFolder: string;
 }
 
 const EN: UiText = {
@@ -26,7 +28,8 @@ const EN: UiText = {
   addItem: '＋ Item', addSheet: '＋ Sheet', recent: 'Recently viewed', noMatches: 'No matches.',
   noCurrentMatches: 'No matches in the current Sheet.', noItems: 'No items yet.',
   resultSuffix: 'results across all sheets', edit: 'Edit', delete: 'Delete', currentSheet: 'Current Sheet',
-  otherSheets: 'Other Sheets', manageSheet: 'Manage custom Cheat Sheet', renameSheet: 'Rename Sheet', deleteSheet: 'Delete Sheet'
+  otherSheets: 'Other Sheets', manageSheet: 'Manage custom Cheat Sheet', renameSheet: 'Rename Sheet', deleteSheet: 'Delete Sheet',
+  reloadFiles: 'Reload Files', dataFolder: 'Data Folder'
 };
 
 const JA: UiText = {

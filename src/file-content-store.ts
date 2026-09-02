@@ -176,14 +176,14 @@ export async function persistAuthoredState(
     return { ok: true, session: { ...session, state: nextState } };
   }
 
+  const previousSemantic = mapDocuments(documentsFromState(session.state, builtins));
   const nextDocuments = mapDocuments(documentsFromState(nextState, builtins));
   const documents = new Map(session.documents);
   const changed: UserDocumentSpec[] = [];
   for (const [key, document] of nextDocuments) {
-    const existing = documents.get(key);
-    if (!existing || existing.content !== document.content) changed.push(document);
+    if (previousSemantic.get(key)?.content !== document.content) changed.push(document);
   }
-  const removed = [...documents.entries()].filter(([key]) => !nextDocuments.has(key));
+  const removed = [...previousSemantic.keys()].filter((key) => !nextDocuments.has(key));
 
   try {
     for (const document of changed) {
@@ -192,7 +192,9 @@ export async function persistAuthoredState(
       const written = await backend.write(document.kind, document.id, document.content, existing?.content ?? null);
       documents.set(key, written);
     }
-    for (const [key, existing] of removed) {
+    for (const key of removed) {
+      const existing = documents.get(key);
+      if (!existing) continue;
       await backend.delete(existing.kind, existing.id, existing.content);
       documents.delete(key);
     }

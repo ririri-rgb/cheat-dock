@@ -20,59 +20,65 @@ export function userDocumentKey(kind: UserDocumentKind, id: string): string {
   return `${kind}:${id}`;
 }
 
-function oneLine(value: string): string {
-  return value.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+function singleLine(value: string): string {
+  return value.replace(/\r?\n/g, ' ').trim();
 }
 
-function frontmatter(meta: Array<[string, string | undefined]>): string {
-  const lines = meta.flatMap(([key, value]) => {
-    const normalized = value === undefined ? '' : oneLine(value);
+function humanLabel(value: string): string {
+  return singleLine(value).replace(/\s+/g, ' ');
+}
+
+function frontmatter(meta: Array<[string, string | undefined, 'label' | 'raw']>): string {
+  const lines = meta.flatMap(([key, value, mode]) => {
+    if (value === undefined) return [];
+    const normalized = mode === 'label' ? humanLabel(value) : singleLine(value);
     return normalized ? [`${key}: ${normalized}`] : [];
   });
   return `---\n${lines.join('\n')}\n---\n`;
 }
 
 function list(value: readonly string[]): string | undefined {
-  const values = value.map(oneLine).filter(Boolean);
+  const values = value.map(humanLabel).filter(Boolean);
   return values.length ? values.join(', ') : undefined;
 }
 
 function serializeItem(item: CheatItem): string {
-  const fields: Array<[string, string | undefined]> = [
-    ['id', item.id],
-    ['kind', item.kind],
-    ['title-ja', item.localizedTitles?.ja],
-    ['description', item.description],
-    ['shortcut', item.shortcut],
-    ['command', item.command],
-    ['aliases', list(item.aliases)],
-    ['tags', list(item.tags)],
-    ['source', item.source]
+  const fields: Array<[string, string | undefined, 'label' | 'raw']> = [
+    ['id', item.id, 'label'],
+    ['kind', item.kind, 'label'],
+    ['title-ja', item.localizedTitles?.ja, 'label'],
+    ['description', item.description, 'raw'],
+    ['shortcut', item.shortcut, 'raw'],
+    ['command', item.command, 'raw'],
+    ['aliases', list(item.aliases), 'label'],
+    ['tags', list(item.tags), 'label'],
+    ['source', item.source, 'raw']
   ];
-  const metadata = fields.flatMap(([key, value]) => {
-    const normalized = value === undefined ? '' : oneLine(value);
+  const metadata = fields.flatMap(([key, value, mode]) => {
+    if (value === undefined) return [];
+    const normalized = mode === 'label' ? humanLabel(value) : singleLine(value);
     return normalized ? [`- ${key}: ${normalized}`] : [];
   });
   const body = item.body?.replace(/\r\n/g, '\n').trim();
-  return [`### ${oneLine(item.title)}`, ...metadata, ...(body ? ['', body] : [])].join('\n');
+  return [`### ${humanLabel(item.title)}`, ...metadata, ...(body ? ['', body] : [])].join('\n');
 }
 
 function serializeSection(section: CheatSection): string {
-  const lines = [`## ${oneLine(section.title)}`];
-  if (section.localizedTitles?.ja) lines.push(`- title-ja: ${oneLine(section.localizedTitles.ja)}`);
+  const lines = [`## ${humanLabel(section.title)}`];
+  if (section.localizedTitles?.ja) lines.push(`- title-ja: ${humanLabel(section.localizedTitles.ja)}`);
   for (const item of section.items) lines.push('', serializeItem(item));
   return lines.join('\n');
 }
 
 export function serializeUserSheet(sheet: CheatSheet): string {
   const head = frontmatter([
-    ['id', sheet.id],
-    ['title', sheet.title],
-    ['title-ja', sheet.localizedTitles?.ja],
-    ['description', sheet.description],
-    ['aliases', list(sheet.aliases)],
-    ['applications', list(sheet.applications)],
-    ['related', list(sheet.related)]
+    ['id', sheet.id, 'label'],
+    ['title', sheet.title, 'label'],
+    ['title-ja', sheet.localizedTitles?.ja, 'label'],
+    ['description', sheet.description, 'raw'],
+    ['aliases', list(sheet.aliases), 'label'],
+    ['applications', list(sheet.applications), 'label'],
+    ['related', list(sheet.related), 'label']
   ]);
   return `${head}\n${sheet.sections.map(serializeSection).join('\n\n')}\n`;
 }

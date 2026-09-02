@@ -24,6 +24,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
+button:disabled { opacity: 0.48; cursor: default; }
 
 main {
   height: 100vh;
@@ -61,7 +62,7 @@ header {
 }
 .sheet-tab { flex: 0 0 auto; max-width: 124px; overflow: hidden; text-overflow: ellipsis; }
 .sheet-tab.active { background: rgb(0 0 0 / 0.075); }
-.sheet-tab:hover, #all-sheets:hover, .toolbar-actions button:hover { background: var(--subtle); }
+.sheet-tab:hover, #all-sheets:hover, .toolbar-actions button:not(:disabled):hover { background: var(--subtle); }
 #all-sheets { max-width: 120px; }
 
 .toolbar {
@@ -83,6 +84,34 @@ header {
 .toolbar-actions { display: flex; gap: 2px; align-items: center; }
 .toolbar-actions button { min-height: 26px; padding-inline: 6px; color: var(--secondary); font-size: 12px; }
 #manage { min-width: 27px; font-weight: 700; letter-spacing: 1px; }
+
+.storage-notice {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--subtle);
+  color: var(--secondary);
+  font-size: 11px;
+}
+.storage-notice > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.storage-notice.storage-error { border-color: color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); }
+.storage-actions { display: flex; flex: 0 0 auto; gap: 4px; }
+.storage-actions button {
+  appearance: none;
+  min-height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: var(--surface);
+  color: var(--secondary);
+  font-size: 10.5px;
+}
 
 .content { min-height: 0; overflow: auto; padding: 6px 10px 12px; }
 details { border-bottom: 1px solid var(--border); padding: 2px 0 4px; }
@@ -194,7 +223,24 @@ dialog::backdrop { background: rgb(0 0 0 / 0.16); }
 .editor { display: grid; gap: 8px; }
 .editor h2, .sheet-management h2 { margin: 0 0 3px; font-size: 16px; }
 .editor label { display: grid; gap: 3px; }
-.editor input { padding: 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.editor input { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.shortcut-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px; }
+.shortcut-field button {
+  appearance: none;
+  min-width: 64px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 7px;
+  background: var(--surface);
+  color: var(--secondary);
+}
+.shortcut-field button.recording {
+  min-width: 116px;
+  border-color: color-mix(in srgb, var(--focus) 50%, var(--border));
+  background: color-mix(in srgb, var(--focus) 9%, var(--surface));
+  color: var(--text);
+}
+.shortcut-preview { min-height: 15px; color: var(--secondary); font-size: 11px; }
 .form-error { margin: 0; color: var(--danger); font-size: 11px; }
 .confirm-copy { margin: 1px 0 4px; overflow-wrap: anywhere; color: var(--secondary); }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 5px; }
@@ -207,14 +253,14 @@ dialog::backdrop { background: rgb(0 0 0 / 0.16); }
   background: var(--surface);
   color: var(--text);
 }
-.actions button:hover { background: var(--surface-hover); }
+.actions button:not(:disabled):hover { background: var(--surface-hover); }
 .actions .danger-action {
   border-color: var(--danger-bg);
   background: var(--danger-bg);
   color: white;
   font-weight: 620;
 }
-.actions .danger-action:hover { border-color: var(--danger-bg-hover); background: var(--danger-bg-hover); }
+.actions .danger-action:not(:disabled):hover { border-color: var(--danger-bg-hover); background: var(--danger-bg-hover); }
 
 .sheet-management-dialog { width: min(300px, calc(100vw - 40px)); }
 .sheet-management { display: grid; gap: 6px; }
@@ -243,6 +289,8 @@ dialog::backdrop { background: rgb(0 0 0 / 0.16); }
   .item-grid { grid-template-columns: 1fr; padding-left: 5px; }
   .item-grid > .layout-wide, .item-grid > .layout-full { grid-column: span 1; }
   .item-value, .recent-value, .layout-wide .item-value.command, .layout-full .item-value.command { max-width: 45vw; }
+  .shortcut-field { grid-template-columns: 1fr; }
+  .shortcut-field button, .shortcut-field button.recording { width: 100%; }
 }
 
 @media (prefers-color-scheme: dark) {
