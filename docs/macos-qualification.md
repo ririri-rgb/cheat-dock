@@ -1,6 +1,6 @@
 # macOS manual qualification
 
-Run this checklist on a physical Mac before marking a release candidate qualified. Record macOS version, architecture, commit SHA, and failures in PR/release qualification notes.
+Run this checklist on a physical Mac before marking a release candidate qualified. Record macOS version, architecture, commit SHA, and failures in PR/release qualification notes. Checked items below reflect explicit physical-Mac evidence reported during PR #1 qualification; newly changed behavior is not marked as physically passed until observed.
 
 ## Lifecycle and foreground application
 
@@ -26,26 +26,43 @@ Run this checklist on a physical Mac before marking a release candidate qualifie
 ## Appearance
 
 - [x] Popup outer corners are visibly rounded and acceptable on the qualification Mac.
+- [ ] After the final `Overlay` title-bar change, Sheet navigation begins near the rounded top with only compact padding and no large empty title row.
 - [ ] No rectangular background leaks outside the rounded native panel in both light/dark mode.
-- [ ] Native shadow/panel placement looks natural below the menu bar.
+- [ ] Native shadow/panel placement remains natural below the menu bar after the title-bar change.
 - [ ] No close/minimize/zoom traffic-light buttons are visible.
 - [ ] Light mode is readable.
 - [ ] Dark mode is readable and has no bright background flash/artifact.
 - [ ] Retina scaling does not produce clipped borders or blurry one-pixel seams.
 
-## Edit / Delete
+## Personal Item Edit / Delete
 
-- [ ] Add a personal item in My Work.
+- [x] Add a personal item in My Work.
+- [x] A personal item remains after restarting Cheat Dock.
 - [ ] Edit its title with the in-app dialog and verify the popup does not hide.
 - [ ] Edit its section and shortcut/command/description.
 - [ ] Restart Cheat Dock and confirm the edit persists.
-- [ ] Delete the personal item using the in-app confirmation dialog.
+- [x] The in-app Delete confirmation dialog opens without using browser `confirm()`.
+- [ ] Confirm Delete and verify the item is removed.
 - [ ] Restart Cheat Dock and confirm the deletion persists.
 - [ ] Built-in items never expose destructive Edit/Delete behavior.
 
+## Custom Sheet management
+
+- [x] A custom Cheat Sheet can be created and persists.
+- [ ] Only a selected custom Sheet shows the `…` management action.
+- [ ] Rename a custom Sheet and restart to confirm persistence.
+- [ ] Create/Rename rejects collisions with built-ins such as `Git`, `Excel`, and `My Work`.
+- [ ] Case/whitespace/NFKC-equivalent duplicate names are rejected with an in-app validation message.
+- [ ] Delete a custom Sheet through the in-app destructive confirmation.
+- [ ] A deleted Sheet does not return after restart.
+- [ ] Deleting the selected custom Sheet falls back to built-in `My Work`.
+- [ ] Deleting a custom Sheet removes stale pin/recent/expanded references.
+- [ ] Built-in Sheets, including built-in `My Work`, cannot be renamed or deleted.
+- [ ] A legacy user-created duplicate named `My Work` can still be renamed or deleted because it is user-owned.
+
 ## Item density and adaptive layout
 
-- [x] The previous two-column compact Excel layout rendered correctly on a physical Mac.
+- [x] Compact Excel items rendered correctly on a physical Mac.
 - [ ] At the default 680px width, three short items can occupy three columns. Because the verified Excel seed currently contains only two items, add one temporary personal short shortcut for this check, then delete it.
 - [ ] Item descriptions do not consume the default list view.
 - [ ] A medium-length Git/Docker command spans extra width without widening/breaking the popup.
@@ -57,9 +74,10 @@ Run this checklist on a physical Mac before marking a release candidate qualifie
 ## Shortcut rendering
 
 - [ ] `Command + C` renders as `⌘ C`.
-- [ ] `Command + Option + S` renders as `⌘ ⌥ S`.
+- [x] `Command + Option + S` renders as `⌘ ⌥ S`.
 - [ ] `Command + Shift + P` renders as `⌘ ⇧ P`.
-- [ ] `Control + Option + Space` renders as `⌃ ⌥ Space` (Control is not Command).
+- [x] `Control + Option + Space` renders as `⌃ ⌥ Space`.
+- [x] Control and Command remain distinct in physical-Mac presentation.
 - [ ] Enter/Return, Tab, Backspace, Escape, and arrow names render with the expected compact macOS forms.
 - [ ] Existing symbolized shortcuts such as `⌘C` still render correctly.
 - [ ] A user-created raw shortcut goes through the same formatter and still persists in editable raw form.
@@ -67,6 +85,7 @@ Run this checklist on a physical Mac before marking a release candidate qualifie
 ## Locale / selective localization
 
 - [x] Japanese primary system language enables locale-aware labels.
+- [x] Selective localization is visible in the running app rather than automatic full-UI translation.
 - [x] Excel item labels display Japanese where an explicit `title-ja` exists.
 - [ ] `My Work` remains `My Work` in Japanese locale.
 - [ ] App/tool names such as `Terminal`, `Git`, `Vim`, and `Docker` remain canonical English.
@@ -85,11 +104,32 @@ Run this checklist on a physical Mac before marking a release candidate qualifie
 - [ ] Clicking a recent entry expands/navigates to its original item.
 - [ ] Copying a shortcut/command records the item as recently used.
 
+## Search grouping
+
+- [ ] Search still finds matches across every Cheat Sheet.
+- [ ] Current Sheet results are shown first under a clear Current Sheet heading.
+- [ ] If the current Sheet has zero hits, matching Other Sheets are still shown.
+- [ ] Other Sheets are grouped compactly by Sheet without losing any hits.
+- [ ] Japanese IME composition remains stable while using the grouped result UI.
+
+## Top navigation
+
+- [ ] Current + pinned Sheets use available single-row width instead of a fixed visible count.
+- [ ] More pinned Sheets become visible when enough width exists.
+- [ ] Overflowed pinned Sheets remain reachable through `All Sheets…`.
+- [ ] A long custom Sheet title truncates without creating a second navigation row.
+- [ ] Keyboard focus remains visible for Sheet tabs and `All Sheets…`.
+
+## Destructive styling
+
+- [ ] Item Delete confirmation uses a neutral Cancel button and explicit red Delete button.
+- [ ] Sheet Delete confirmation uses the same compact destructive treatment.
+- [ ] Delete styling is readable in both light and dark mode and does not inherit an accidental blue browser button style.
+
 ## Persistence and search
 
 - [ ] Pin/unpin persists after restart.
 - [ ] Section expanded state persists after restart.
-- [ ] Create a custom Cheat Sheet and verify persistence.
 - [ ] Search crosses multiple sheets and mixed Japanese/English aliases.
 - [ ] Corrupting one persisted user fragment does not prevent the app from opening (developer qualification only).
 
