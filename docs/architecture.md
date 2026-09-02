@@ -32,11 +32,15 @@ The UI chooses Japanese only when the primary system/browser language is Japanes
 
 This inline optional-field approach was chosen over companion translation files because the current seed set is small and one-file review keeps IDs, source links, and translations visibly aligned. If localization grows beyond a small number of languages, the storage shape can evolve without changing canonical item IDs.
 
-## Search
+## Search and IME
 
 Search is deterministic and local. NFKC/case/whitespace normalization plus AND token matching is applied to canonical/localized titles, aliases, tags, descriptions, commands, shortcuts, body text, sheet names, and section names. Ranking weights the currently displayed localized title, then other title/alias/tag matches, over body matches; there is no AI or remote query.
 
-IME composition is handled separately from search ranking. While WebKit reports an active composition, input does not trigger a DOM rebuild. The committed composition is applied after composition ends; ordinary Latin input continues to update immediately.
+IME composition is handled separately from search ranking. While WebKit reports an active composition, input does not trigger a DOM rebuild. The committed composition is applied after composition ends; ordinary Latin input continues to update immediately. A small generation token prevents a deferred composition-end update from overwriting a newer normal input event.
+
+## Dependency reproducibility
+
+`package-lock.json` and `src-tauri/Cargo.lock` are committed. CI installs JavaScript dependencies with `npm ci` and checks Rust with `cargo check --locked`. `rust-toolchain.toml` declares the `stable` channel rather than pinning one compiler patch forever; the application dependency graph is still locked, while contributors receive supported stable Rust security/toolchain updates.
 
 ## Security/privacy
 
