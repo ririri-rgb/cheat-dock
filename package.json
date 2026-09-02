@@ -1,0 +1,22 @@
+{
+  "name": "cheat-dock",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "node --test --import tsx test/*.test.ts",
+    "check": "npm run build && npm test",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vite": "^8.2.0"
+  }
+}

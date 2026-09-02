@@ -1,0 +1,20 @@
+[package]
+name = "cheat-dock"
+version = "0.1.0"
+description = "A local cheat sheet for every app, right from your menu bar."
+authors = ["cheat-dock contributors"]
+edition = "2021"
+
+[lib]
+name = "cheat_dock_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.4", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2.11.5", features = ["tray-icon", "macos-private-api"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", features = ["NSWorkspace", "NSRunningApplication"] }
