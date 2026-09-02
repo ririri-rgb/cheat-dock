@@ -68,7 +68,7 @@ async function safeLoad(backend: UserStorageBackend): Promise<LoadUserDocumentsR
 }
 
 function isLoadResult(value: LoadUserDocumentsResult | StorageCommandError): value is LoadUserDocumentsResult {
-  return Array.isArray((value as LoadUserDocumentsResult).documents);
+  return 'documents' in value && Array.isArray(value.documents);
 }
 
 export async function initializeFileContent(
@@ -91,7 +91,7 @@ export async function initializeFileContent(
   if (migrationCompleted(storage)) {
     const state = stateWithFiles(legacyState, parsed);
     saveUiState(storage, state);
-    return { mode: 'files', state, documents: parsed.documents, rootPath: loaded.rootPath, issues: parsed.issues };
+    return { mode: 'files', state, documents: parsed.documents, issues: parsed.issues };
   }
 
   const legacyRaw = rawState(storage);
@@ -101,7 +101,6 @@ export async function initializeFileContent(
       mode: 'legacy',
       state: legacyState,
       documents: parsed.documents,
-      rootPath: loaded.rootPath,
       issues: [...parsed.issues, ...plan.errors.map((message) => issue('migration-blocked', message))]
     };
   }
@@ -116,7 +115,6 @@ export async function initializeFileContent(
       mode: 'legacy',
       state: legacyState,
       documents: parsed.documents,
-      rootPath: loaded.rootPath,
       issues: [...parsed.issues, issue('migration-write-failed', failure.message, failure.relativePath)]
     };
   }
@@ -124,7 +122,7 @@ export async function initializeFileContent(
   const reloaded = await safeLoad(backend);
   if (!isLoadResult(reloaded)) {
     return {
-      mode: 'legacy', state: legacyState, documents: parsed.documents, rootPath: loaded.rootPath,
+      mode: 'legacy', state: legacyState, documents: parsed.documents,
       issues: [...parsed.issues, issue('migration-reload-failed', reloaded.message, reloaded.relativePath)]
     };
   }
@@ -132,7 +130,7 @@ export async function initializeFileContent(
   const verified = verifyMigratedDocuments(plan.desired, parsed, builtins);
   if (!verified.ok) {
     return {
-      mode: 'legacy', state: legacyState, documents: parsed.documents, rootPath: reloaded.rootPath,
+      mode: 'legacy', state: legacyState, documents: parsed.documents,
       issues: [...parsed.issues, issue('migration-verification-failed', verified.error)]
     };
   }
@@ -140,7 +138,7 @@ export async function initializeFileContent(
   markMigrationCompleted(storage, legacyRaw);
   const state = stateWithFiles(legacyState, parsed);
   saveUiState(storage, state);
-  return { mode: 'files', state, documents: parsed.documents, rootPath: reloaded.rootPath, issues: parsed.issues };
+  return { mode: 'files', state, documents: parsed.documents, issues: parsed.issues };
 }
 
 export async function reloadFileContent(
@@ -157,7 +155,7 @@ export async function reloadFileContent(
   const parsed = parseLoadedUserDocuments(loaded.documents, loaded.issues, builtins);
   const state = stateWithFiles(session.state, parsed);
   saveUiState(storage, state);
-  return { mode: 'files', state, documents: parsed.documents, rootPath: loaded.rootPath, issues: parsed.issues };
+  return { mode: 'files', state, documents: parsed.documents, issues: parsed.issues };
 }
 
 function mapDocuments(specs: readonly UserDocumentSpec[]): Map<string, UserDocumentSpec> {
@@ -200,8 +198,14 @@ export async function persistAuthoredState(
     }
   } catch (error) {
     const failure = storageError(error);
-    const refreshed = await reloadFileContent({ ...session, documents }, builtins, storage, backend);
-    return { ok: false, session: refreshed, error: failure };
+    return {
+      ok: false,
+      session: {
+        ...session,
+        issues: [issue(failure.code, failure.message, failure.relativePath), ...session.issues]
+      },
+      error: failure
+    };
   }
 
   saveUiState(storage, nextState);

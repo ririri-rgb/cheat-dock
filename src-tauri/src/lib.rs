@@ -1,4 +1,7 @@
+mod finder;
 mod storage;
+#[cfg(test)]
+mod storage_tests;
 
 use serde::Serialize;
 use std::path::PathBuf;
@@ -60,9 +63,14 @@ fn delete_user_document(
 }
 
 #[tauri::command]
-fn user_data_path(app: tauri::AppHandle) -> Result<String, storage::CommandError> {
+fn reveal_user_data(app: tauri::AppHandle) -> Result<String, storage::CommandError> {
     let root = storage_root(&app)?;
     storage::ensure_layout(&root)?;
+    finder::reveal(&root).map_err(|message| storage::CommandError {
+        code: "finder".into(),
+        message,
+        relative_path: None,
+    })?;
     Ok(root.to_string_lossy().to_string())
 }
 
@@ -105,7 +113,7 @@ pub fn run() {
             load_user_documents,
             write_user_document,
             delete_user_document,
-            user_data_path
+            reveal_user_data
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

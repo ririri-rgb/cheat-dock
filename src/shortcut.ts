@@ -106,7 +106,9 @@ export interface KeyboardCaptureEventLike {
 }
 
 export type KeyboardCaptureResult =
-  | { status: 'ignore' | 'pending' | 'cancel' }
+  | { status: 'ignore' }
+  | { status: 'pending' }
+  | { status: 'cancel' }
   | { status: 'commit'; value: string };
 
 const MODIFIER_KEYS = new Set(['Meta', 'Control', 'Alt', 'Shift', 'CapsLock', 'Fn', 'FnLock']);

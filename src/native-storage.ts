@@ -51,8 +51,10 @@ export async function deleteUserDocument(
   await invoke('delete_user_document', { request: { kind, id, expectedContent } });
 }
 
+// This narrow native command reveals the app-owned directory in Finder and
+// returns the same path so the UI can also copy it as a recovery fallback.
 export async function userDataPath(): Promise<string> {
-  return invoke<string>('user_data_path');
+  return invoke<string>('reveal_user_data');
 }
 
 export function storageError(error: unknown): StorageCommandError {

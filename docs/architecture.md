@@ -1,69 +1,111 @@
 # Architecture and decision log
 
-## Framework
+## Framework and menu-bar lifecycle
 
-Tauri 2 + Rust + vanilla TypeScript/Vite. Tauri provides supported desktop tray APIs on macOS and Windows while keeping the UI bundle small. v0.1 is macOS-first; no cross-platform abstraction layer is added beyond stable application identifiers.
+Cheat Dock uses Tauri 2 + Rust + vanilla TypeScript/Vite. The main window starts hidden with macOS activation policy `Accessory`. On tray click, Rust reads `NSWorkspace.frontmostApplication` before Cheat Dock takes focus, emits the bundle ID, positions/shows the popup, and hides it again on focus loss. No Accessibility permission is required.
 
-## Menu-bar lifecycle
+The panel keeps native decorations/shadow with Tauri's public `Overlay` title-bar style. Whole-window private-API transparency remains disabled.
 
-The main window starts hidden and the macOS activation policy is `Accessory`, so Cheat Dock behaves as a menu-bar utility rather than a normal Dock-first app. On a left tray click, Rust queries `NSWorkspace.frontmostApplication` **before** focusing Cheat Dock, emits its bundle identifier to the webview, positions the popup near the tray click, and shows it. Losing focus hides the popup.
+## Built-in vs user-authored content
 
-This foreground lookup does not require Accessibility permission and reads only the current application's bundle identifier/localized name.
+Built-ins remain repository-managed Markdown compiled into the app and are read-only from GUI CRUD. User-authored knowledge is now a separate file-backed source of truth under Tauri's OS-standard `app_data_dir`:
 
-## macOS panel appearance
+```text
+user-data/
+├── cheats/
+│   └── user-<stable-id>.md
+└── overlays/
+    └── <built-in-id>.md
+```
 
-The window keeps normal native decorations, shadow, and an opaque WebView. Tauri's public `Overlay` title-bar style lets content use the title-bar area instead of reserving a large empty title row. The title text stays hidden and the standard close/minimize/zoom controls are hidden through public AppKit `NSWindow.standardWindowButton` APIs.
+Custom Sheet filenames use stable IDs, never titles, so rename does not move/create a second file. A built-in overlay uses the built-in Sheet ID but never rewrites the bundled Markdown.
 
-Whole-window transparency remains disabled because Tauri requires its `macos-private-api` feature for that path on macOS. Cheat Dock does not enable that feature. This preserves the already-qualified rounded native window/shadow approach while reducing unused top inset. Exact top inset and shadow after the `Overlay` switch remain a physical-Mac qualification item.
+Pins, Recently viewed, expanded sections, and similar UI state remain in validated WebView localStorage because they are not authored knowledge. After migration, `userSheets` and `overlays` are deliberately removed from the active localStorage state; files are authoritative.
 
-## Data and personal content
+## Markdown schema and loading
 
-Built-ins are repository-managed Markdown compiled into the frontend bundle. The parser accepts a constrained frontmatter/H2/H3 schema and rejects unknown fields and duplicate item IDs. User additions are overlaid in state rather than mutating built-ins, so application updates cannot overwrite built-in source files with personal edits.
+User files reuse the existing constrained frontmatter/H2/H3 parser. Unknown/malformed fields, duplicate IDs, unsafe identities, invalid UTF-8, and duplicate Sheet titles are isolated rather than trusted. One corrupt file produces a compact issue while valid user files and built-ins continue loading.
 
-Current phase-one persistence uses the WebView's application-local storage. Loading performs nested runtime validation of IDs, strings, arrays, sections, items, overlays, duplicate IDs, and custom sheets before data enters application state. Invalid fragments are discarded rather than trusted as `AppState`.
+The serializer distinguishes structural labels from authored payload. Human labels may normalize repeated whitespace, while `command`, `shortcut`, `description`, and `source` retain meaningful internal spacing. Shortcut glyph formatting is presentation-only and never persisted to Markdown.
 
-Personal item and custom Sheet CRUD use in-app `<dialog>` UI rather than browser `prompt`/`confirm`, avoiding focus-loss conflicts with the menu-bar popup lifecycle. Built-in Sheets/items are never accepted by the destructive mutation functions.
+## Native filesystem boundary
 
-Custom Sheet names are normalized with Unicode NFKC, collapsed whitespace, trimming, and case-insensitive comparison before Create/Rename. Names must be unique across both built-in and user-created Sheets. Existing legacy duplicate data is not silently deleted; the user can rename or delete the user-owned duplicate.
+The frontend does not receive a broad filesystem plugin/scope. Four narrow Rust/Tauri operations own file access: load documents, write one identified document, delete one identified document, and reveal the app-owned user-data folder.
 
-Deleting a custom Sheet removes its `userSheets` entry plus pinned, recent, expanded, overlay, and user `related` references. If the deleted Sheet is selected, the UI falls back to built-in `My Work` when available.
+The Rust boundary:
 
-Moving personal data to human-readable file-backed Markdown remains a separate persistence project. It is intentionally deferred from PR #1 so the menu-bar foundation does not carry a storage migration at the same time.
+- resolves the directory through Tauri `app_data_dir` rather than hard-coded absolute paths;
+- only accepts bounded ASCII stable document IDs;
+- refuses traversal, symlinked data directories/files/backups, and non-regular files;
+- accepts UTF-8 Markdown only;
+- limits a file to 1 MiB and loads at most 256 files per document kind;
+- never executes user content or shell commands.
 
-## Locale
+On macOS, Open Data Folder calls public `NSWorkspace.selectFile:inFileViewerRootedAtPath:` through `objc2-app-kit`; it does not invoke the shell or private APIs. The returned path is also copied to the clipboard as a recovery convenience.
 
-English is the canonical authoring language and existing `###` headings remain stable. Japanese is an optional overlay inside the same Markdown file using `title-ja` on a sheet, section, and/or item. Internally this maps to localized title metadata keyed by locale while the item ID remains unchanged.
+## Atomic writes and backup
 
-Localization is deliberately selective. App/tool names (`My Work`, `Excel`, `Git`, `Vim`, `Docker`, `Homebrew`, `SSH`, `VS Code`, `Terminal`), user-created Sheet names, and technical controls such as `Edit`, `Delete`, `Item`, `Sheet`, `Rename Sheet`, and `Delete Sheet` remain canonical English unless an explicit localized field exists. Comprehension-oriented labels such as search, pinning, Recently viewed, and selected section names may provide Japanese text. No automatic Katakana transliteration is performed.
+A write stays in the target directory and follows:
 
-Missing Japanese text falls back to the canonical English title. Commands are never localized. Shortcut raw data is preserved and presentation-formatted separately. Search indexes both canonical and localized titles so Japanese display does not remove English discoverability.
+1. validate request/path/content;
+2. compare the current raw content with the expected raw revision;
+3. create a unique temporary file with `create_new`;
+4. write all bytes and `sync_all` the temporary file;
+5. read the temporary file back and verify exact content;
+6. write/sync one previous-version `.bak` when replacing an existing file;
+7. rename the temporary file to the target on the same filesystem;
+8. sync the containing directory on Unix/macOS.
 
-## Search and IME
+Failure before replacement leaves the old target intact. Delete also requires the expected raw revision and writes `.bak` before removing the target.
 
-Search is deterministic and local. NFKC/case/whitespace normalization plus AND token matching is applied to canonical/localized titles, aliases, tags, descriptions, commands, shortcuts, body text, sheet names, and section names. Ranking weights the currently displayed localized title, then other title/alias/tag matches, over body matches; there is no AI or remote query.
+The storage layer is atomic per document, not a multi-file database transaction. A multi-document operation that fails partway requires Reload Files before further authored saves; the conflict policy prevents a blind second Save from overwriting an external edit.
 
-Search still covers every Sheet. Presentation groups the globally ranked hits into the current Sheet first and then `Other Sheets`, grouped by Sheet while preserving ranked order within each group. A zero-hit current Sheet does not hide matching results elsewhere.
+## External editing and concurrency
 
-IME composition is handled separately from search ranking. While WebKit reports an active composition, input does not trigger a DOM rebuild. The committed composition is applied after composition ends; ordinary Latin input continues to update immediately. A generation token prevents a deferred composition-end update from overwriting a newer normal input event.
+Files are re-read at app initialization and whenever the menu-bar popup opens; Reload Files provides an explicit recovery path. PR #6 does not add a file watcher.
 
-## Compact presentation and navigation
+Each loaded file retains its exact raw content. Before GUI write/delete, Rust compares disk content with that expected revision. A mismatch returns `conflict` and does not write. The session intentionally keeps its stale pre-save revision until the user explicitly reloads, so repeatedly pressing Save cannot silently convert a conflict into an overwrite.
 
-At the default 680px popup width, compact shortcut items use a three-column grid. Presentation classifies command items as compact, wide, or full so long Git/Docker/SSH/Terminal commands can span more columns without forcing all items wider. Medium and narrow breakpoints fall back to two and one columns.
+Change detection is semantic per document. If an external editor merely changes formatting/spacing in one file and the GUI changes a different document, the externally formatted file is not canonicalized/re-written. When Cheat Dock intentionally edits a document, its constrained serializer becomes the file's new canonical formatting.
 
-Top navigation contains the current Sheet plus pinned Sheets. All candidates are rendered, then a small width-measurement function hides only the candidates that do not fit the current single-row navigation strip. There is no fixed visible-Sheet count. `All Sheets…` remains outside the measured strip and is always available as overflow access.
+## localStorage migration
 
-## Shortcut presentation
+Legacy PR #1 content migrates once, conservatively:
 
-Markdown and user data keep human-readable raw shortcuts. A pure presentation formatter converts macOS names such as `Command`, `Option`, `Control`, and `Shift` to `⌘`, `⌥`, `⌃`, and `⇧` while preserving the raw value for editing. Already-symbolized shortcuts are normalized without confusing Control and Command.
+1. sanitize/load legacy localStorage state;
+2. load existing user Markdown;
+3. plan stable-ID documents and reject collisions/conflicts;
+4. write only missing documents;
+5. re-read every document;
+6. parse and verify semantic round-trip equality;
+7. save the original legacy JSON as a single recovery backup in localStorage;
+8. write the verified migration marker;
+9. save UI-only localStorage without authored content.
 
-## Dependency reproducibility
+The marker is never written before file verification. Failed/interrupted migration keeps legacy authored data, remains retryable, and reuses matching partial files rather than creating duplicates. Existing non-matching files are never overwritten by migration.
 
-`package-lock.json` and `src-tauri/Cargo.lock` are committed. CI installs JavaScript dependencies with `npm ci` and checks Rust with `cargo check --locked`. `rust-toolchain.toml` declares the `stable` channel rather than pinning one compiler patch forever; the application dependency graph is still locked while contributors receive supported stable Rust updates.
+## Shortcut parsing, recording and presentation
 
-## Security/privacy
+Keyboard shortcut logic is centralized in a pure module. Canonical storage uses author-friendly text such as `Command + Shift + P`. Presentation maps known keys/modifiers to macOS glyphs. Actual Record capture maps `Meta → Command`, `Control → Control`, `Alt → Option`, `Shift → Shift`; modifier-only events remain pending, Escape cancels, composition/repeat events are ignored, and the final non-modifier key commits one chord.
 
-No network API, analytics, login, global shortcut, shell-execution, or broad filesystem permission is enabled. Commands are display/copy references only. User-authored text is escaped and never passed to an HTML/Markdown renderer. Tauri capability configuration currently grants only `core:default`.
+Capture is attached only to the explicit Record control in the item dialog, never document-wide, so Search's Japanese IME controller remains independent.
 
-## Distribution
+A separate explicit-chord grammar formats keyboard instructions embedded in displayed command/procedure text. It requires modifier-plus-key syntax, so `Command + K` can render `⌘ K`, while `command -v node`, `run command`, `Git command`, and `Command failed` remain unchanged. Raw copy/storage values are never mutated.
 
-Development builds require no Apple identity. Public direct-download builds will require Developer ID signing and Apple notarization; those credentials are intentionally not stored in the repository.
+Multi-chord sequences such as `Command + K`, then `Command + S` are intentionally future work.
+
+## Search, locale and compact UI
+
+Search remains deterministic/local with NFKC/case/whitespace normalization, aliases/tags and stable scoring. Results are presented as Current Sheet then Other Sheets without dropping hits. IME composition does not cause root re-render until composition commits.
+
+English is canonical; Japanese localization is explicit/selective through optional localized fields. Technical tool names/control labels remain English where appropriate. Missing translations fall back safely.
+
+At default width short items target three columns; medium/narrow widths fall back to two/one, and long commands may span wide/full rows.
+
+## Reproducibility, security and distribution
+
+`package-lock.json`, `src-tauri/Cargo.lock`, and `rust-toolchain.toml` are committed. CI uses `npm ci`, frontend tests/build, and `cargo test --locked` on macOS.
+
+No AI, cloud, telemetry, account, arbitrary command execution, global shortcut permission, Accessibility permission, or `macos-private-api` is enabled. User-authored text is escaped and not executed as HTML.
+
+Signing/notarization and formal v0.1 release remain later phases.

@@ -1,139 +1,117 @@
 # macOS manual qualification
 
-Run this checklist on a physical Mac before marking a release candidate qualified. Record macOS version, architecture, commit SHA, and failures in PR/release qualification notes. Checked items below reflect explicit physical-Mac evidence reported during PR #1 qualification; newly changed behavior is not marked as physically passed until observed.
+Record macOS version, architecture, commit SHA, and failures. Checked items in the first section are physical evidence already reported during PR #1. PR #6 changes remain unchecked until observed on a physical Mac.
 
-## Lifecycle and foreground application
+## Previously qualified foundation (PR #1)
 
-- [x] `npm run tauri dev` starts on a physical Mac.
-- [x] Cheat Dock tray icon appears and opens the popup.
-- [x] Excel foreground detection selects Excel on the qualification Mac.
-- [ ] Finder, VS Code, and Terminal foreground detection selects the corresponding sheet.
-- [ ] An unknown frontmost app produces a usable fallback instead of crashing.
-- [ ] Manual sheet selection remains stable until the popup closes.
-- [ ] Reopening re-detects the current foreground app.
-- [ ] Clicking outside hides the popup; reopening restores usable focus.
+- [x] `npm run tauri dev` starts and the menu-bar icon opens the popup.
+- [x] Excel foreground-app detection works on the qualification Mac.
+- [x] Japanese IME enters `コピー` without the former `kここpコピコピー` corruption.
+- [x] Japanese locale detection/selective localization works.
+- [x] Rounded popup appearance is acceptable.
+- [x] Compact Excel items render correctly.
+- [x] Recently viewed shows localized label + shortcut.
+- [x] Personal items survive restart under the PR #1 persistence layer.
+- [x] `Command + Option + S` displays as `⌘ ⌥ S`.
+- [x] `Control + Option + Space` displays as `⌃ ⌥ Space`; Control and Command stay distinct.
+- [x] Adding a personal item works and the in-app Delete confirmation opens.
+- [x] Custom Cheat Sheets can be created and persist.
 
-## IME
+PR #6 must not regress these, especially Search IME composition.
 
-- [x] Japanese IME can enter `コピー` without duplicated/interleaved romanized text.
-- [x] The previously observed `kここpコピコピー` composition corruption is no longer reproduced.
-- [ ] Composition candidates remain stable through a longer conversion/edit sequence.
-- [ ] `コミット 戻す` works as a mixed Japanese/English query.
-- [ ] `セル 書式` can be composed normally.
-- [ ] Search results update after composition is committed, not during intermediate composition.
-- [ ] Ordinary English input still updates search immediately.
+# PR #6 file-backed personal-data qualification
 
-## Appearance
+## 1. Migration and source of truth
 
-- [x] Popup outer corners are visibly rounded and acceptable on the qualification Mac.
-- [ ] After the final `Overlay` title-bar change, Sheet navigation begins near the rounded top with only compact padding and no large empty title row.
-- [ ] No rectangular background leaks outside the rounded native panel in both light/dark mode.
-- [ ] Native shadow/panel placement remains natural below the menu bar after the title-bar change.
-- [ ] No close/minimize/zoom traffic-light buttons are visible.
-- [ ] Light mode is readable.
-- [ ] Dark mode is readable and has no bright background flash/artifact.
-- [ ] Retina scaling does not produce clipped borders or blurry one-pixel seams.
+- [ ] Before updating, keep at least one existing My Work/custom personal item from PR #1.
+- [ ] Run the PR #6 branch with `npm run tauri dev`; the existing authored item still appears after first startup.
+- [ ] Close/reopen the popup and restart the app; migrated content still appears.
+- [ ] Add a new personal item, restart, and confirm it remains.
+- [ ] Pin/Recently viewed/expanded state remains usable after migration (these remain UI state, not Markdown content).
+- [ ] No duplicate custom Sheet/item appears after several restarts.
 
-## Personal Item Edit / Delete
+## 2. User Markdown and Finder
 
-- [x] Add a personal item in My Work.
-- [x] A personal item remains after restarting Cheat Dock.
-- [ ] Edit its title with the in-app dialog and verify the popup does not hide.
-- [ ] Edit its section and shortcut/command/description.
-- [ ] Restart Cheat Dock and confirm the edit persists.
-- [x] The in-app Delete confirmation dialog opens without using browser `confirm()`.
-- [ ] Confirm Delete and verify the item is removed.
-- [ ] Restart Cheat Dock and confirm the deletion persists.
-- [ ] Built-in items never expose destructive Edit/Delete behavior.
+- [ ] Click **Open Data Folder**. Finder reveals Cheat Dock's OS app-data `user-data` directory.
+- [ ] Confirm the path contains `cheats/` and `overlays/`.
+- [ ] A custom Sheet is represented by `cheats/user-<stable-id>.md` rather than a title-based filename.
+- [ ] Rename the custom Sheet; its existing stable-ID filename remains the same and its `title:` updates.
+- [ ] Add a personal item to a built-in such as Git/Excel; bundled repository Markdown is untouched and `overlays/<built-in-id>.md` changes.
+- [ ] Edit/delete custom-Sheet and built-in-overlay items; Markdown reflects each operation after save/reload.
+- [ ] Delete a custom Sheet and confirm its target Markdown disappears while one `.bak` recovery file may remain.
 
-## Custom Sheet management
+## 3. Direct external editing and reload
 
-- [x] A custom Cheat Sheet can be created and persists.
-- [ ] Only a selected custom Sheet shows the `…` management action.
-- [ ] Rename a custom Sheet and restart to confirm persistence.
-- [ ] Create/Rename rejects collisions with built-ins such as `Git`, `Excel`, and `My Work`.
-- [ ] Case/whitespace/NFKC-equivalent duplicate names are rejected with an in-app validation message.
-- [ ] Delete a custom Sheet through the in-app destructive confirmation.
-- [ ] A deleted Sheet does not return after restart.
-- [ ] Deleting the selected custom Sheet falls back to built-in `My Work`.
-- [ ] Deleting a custom Sheet removes stale pin/recent/expanded references.
-- [ ] Built-in Sheets, including built-in `My Work`, cannot be renamed or deleted.
-- [ ] A legacy user-created duplicate named `My Work` can still be renamed or deleted because it is user-owned.
+- [ ] Open one user Markdown file in VS Code/Vim, edit its human title or an item, save, then close/reopen the Cheat Dock popup; the edit appears.
+- [ ] Alternatively use **Reload Files** when shown; valid external edits appear.
+- [ ] External formatting changes to an unrelated file are not rewritten merely because another Sheet is edited in the GUI.
+- [ ] A direct edit that creates a duplicate Sheet title is isolated/reported rather than shadowing a built-in.
 
-## Item density and adaptive layout
+## 4. Conflict protection
 
-- [x] Compact Excel items rendered correctly on a physical Mac.
-- [ ] At the default 680px width, three short items can occupy three columns. Because the verified Excel seed currently contains only two items, add one temporary personal short shortcut for this check, then delete it.
-- [ ] Item descriptions do not consume the default list view.
-- [ ] A medium-length Git/Docker command spans extra width without widening/breaking the popup.
-- [ ] A very long command remains contained/truncated in its full-row layout.
-- [ ] Around the medium breakpoint, the grid falls back to two columns and remains readable.
-- [ ] At narrow width, the grid falls back to one column and remains readable.
-- [ ] Tab navigation and visible focus rings remain usable after the density increase.
+- [ ] Open a user file externally but leave Cheat Dock's edit dialog based on the older version.
+- [ ] Save the external edit first, then press Save in Cheat Dock.
+- [ ] Cheat Dock reports a conflict and does **not** overwrite the external file.
+- [ ] Pressing Save again without Reload still does not overwrite it.
+- [ ] Reload/reopen, review the external content, then make a fresh GUI edit; save succeeds.
 
-## Shortcut rendering
+## 5. Corrupt-file recovery
 
-- [ ] `Command + C` renders as `⌘ C`.
-- [x] `Command + Option + S` renders as `⌘ ⌥ S`.
-- [ ] `Command + Shift + P` renders as `⌘ ⇧ P`.
-- [x] `Control + Option + Space` renders as `⌃ ⌥ Space`.
-- [x] Control and Command remain distinct in physical-Mac presentation.
-- [ ] Enter/Return, Tab, Backspace, Escape, and arrow names render with the expected compact macOS forms.
-- [ ] Existing symbolized shortcuts such as `⌘C` still render correctly.
-- [ ] A user-created raw shortcut goes through the same formatter and still persists in editable raw form.
+- [ ] Create or intentionally break one test user Markdown file (keep a backup first).
+- [ ] Cheat Dock still opens; built-ins, search, and other valid user files remain usable.
+- [ ] A compact storage error shows the relative file path and reason.
+- [ ] Open Data Folder provides a repair path; Cheat Dock does not delete/overwrite the corrupt file.
+- [ ] Fix the Markdown and reload/reopen; the error clears and content returns.
 
-## Locale / selective localization
+## 6. Shortcut Record
 
-- [x] Japanese primary system language enables locale-aware labels.
-- [x] Selective localization is visible in the running app rather than automatic full-UI translation.
-- [x] Excel item labels display Japanese where an explicit `title-ja` exists.
-- [ ] `My Work` remains `My Work` in Japanese locale.
-- [ ] App/tool names such as `Terminal`, `Git`, `Vim`, and `Docker` remain canonical English.
-- [ ] `Edit` and `Delete` remain English.
-- [ ] `＋ Item` and `＋ Sheet` remain English/technical controls.
-- [ ] `Recently viewed` displays as `最近見た項目` in Japanese locale.
-- [ ] Excel `Basic` displays as `基本`.
-- [ ] Missing Japanese translation falls back to canonical English; no Katakana transliteration is invented.
-- [ ] Commands remain unchanged; shortcut raw data is not localized (only presentation-formatted).
+- [ ] In Add/Edit Item, the Shortcut field still accepts normal typed text.
+- [ ] Click **Record**, press `⌘K`; field stores `Command + K`, preview/list displays `⌘ K`.
+- [ ] Press `⌘⇧P`; stored value is `Command + Shift + P`, UI displays `⌘ ⇧ P`.
+- [ ] Press `⌃⌥Space`; stored value is `Control + Option + Space`, UI displays `⌃ ⌥ Space`.
+- [ ] Press `⌥↑`; stored value is `Option + Up`, UI displays `⌥ ↑`.
+- [ ] Press only a modifier; capture remains pending rather than committing.
+- [ ] Press Escape while recording; capture cancels without changing the existing shortcut.
+- [ ] After a captured shortcut save, inspect the Markdown: it contains canonical words, not glyphs.
+- [ ] Restart and confirm the captured shortcut round-trips from Markdown.
 
-## Recently viewed
+## 7. Keyboard/IME isolation
 
-- [x] A recent entry shows localized label plus shortcut on the qualification Mac.
-- [ ] Recently viewed is kept separately per sheet.
-- [ ] A formatted shortcut is shown using the same shortcut presentation logic as the source item.
-- [ ] Clicking a recent entry expands/navigates to its original item.
-- [ ] Copying a shortcut/command records the item as recently used.
+- [ ] Record mode only captures while the explicit Record control is active; normal app/search keyboard shortcuts work after capture ends.
+- [ ] Japanese Search IME still enters `コピー` normally.
+- [ ] `コミット 戻す` and `セル 書式` compose without duplicate/interleaved text.
+- [ ] Search updates after composition commit and ordinary Latin search remains immediate.
 
-## Search grouping
+## 8. Explicit chord presentation safety
 
-- [ ] Search still finds matches across every Cheat Sheet.
-- [ ] Current Sheet results are shown first under a clear Current Sheet heading.
-- [ ] If the current Sheet has zero hits, matching Other Sheets are still shown.
-- [ ] Other Sheets are grouped compactly by Sheet without losing any hits.
-- [ ] Japanese IME composition remains stable while using the grouped result UI.
+- [ ] Create a displayed value containing `Command + K`; UI presents `⌘ K` while Markdown remains `Command + K`.
+- [ ] `Press Command + Shift + P` presents `Press ⌘ ⇧ P`.
+- [ ] A command `command -v node` remains exactly `command -v node` in both UI raw copy and Markdown.
+- [ ] `run command`, `Git command`, and `Command failed` are not glyph-rewritten.
+- [ ] Copying a command copies its raw value, not presentation glyph substitutions.
 
-## Top navigation
+## 9. Command whitespace semantics
 
-- [ ] Current + pinned Sheets use available single-row width instead of a fixed visible count.
-- [ ] More pinned Sheets become visible when enough width exists.
-- [ ] Overflowed pinned Sheets remain reachable through `All Sheets…`.
-- [ ] A long custom Sheet title truncates without creating a second navigation row.
-- [ ] Keyboard focus remains visible for Sheet tabs and `All Sheets…`.
+- [ ] Save an item whose command contains meaningful repeated spaces, for example `printf '%s  %s' "$A" "$B"`.
+- [ ] Inspect Markdown after GUI save: the two internal spaces are preserved.
+- [ ] Restart/reload and confirm the raw copied command still preserves those spaces.
 
-## Destructive styling
+## 10. Existing menu-bar UX regression
 
-- [ ] Item Delete confirmation uses a neutral Cancel button and explicit red Delete button.
-- [ ] Sheet Delete confirmation uses the same compact destructive treatment.
-- [ ] Delete styling is readable in both light and dark mode and does not inherit an accidental blue browser button style.
+- [ ] Rounded panel/shadow/titlebar spacing remain acceptable.
+- [ ] Foreground detection and manual Sheet navigation still work.
+- [ ] Three/two/one-column adaptive layout still behaves as before.
+- [ ] Recently viewed, pinning, grouped Current/Other search, selective localization, and shortcut glyphs remain intact.
+- [ ] No Accessibility permission appears and no network connection is required for core use.
 
-## Persistence and search
+## Qualification record
 
-- [ ] Pin/unpin persists after restart.
-- [ ] Section expanded state persists after restart.
-- [ ] Search crosses multiple sheets and mixed Japanese/English aliases.
-- [ ] Corrupting one persisted user fragment does not prevent the app from opening (developer qualification only).
+When complete, record:
 
-## Privacy
-
-- [ ] No Accessibility permission prompt appears.
-- [ ] No network request is required for core usage.
+```text
+macOS:
+architecture:
+commit:
+result:
+notes:
+```
