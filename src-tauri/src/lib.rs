@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::{Manager, PhysicalPosition, Position, WebviewWindow};
+use tauri::{Emitter, Manager, PhysicalPosition, Position, WebviewWindow};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
 #[derive(Serialize)]
@@ -9,7 +9,6 @@ struct ForegroundApplication {
     name: Option<String>,
 }
 
-#[tauri::command]
 fn foreground_application() -> ForegroundApplication {
     #[cfg(target_os = "macos")]
     {
@@ -42,7 +41,6 @@ fn toggle_window(window: &WebviewWindow, tray_position: PhysicalPosition<f64>) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![foreground_application])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -53,6 +51,8 @@ pub fn run() {
                 .icon(app.default_window_icon().cloned().expect("app icon missing"))
                 .on_tray_icon_event(move |_tray, event| {
                     if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, position, .. } = event {
+                        let foreground = foreground_application();
+                        let _ = handle.emit_to("main", "foreground-app", &foreground);
                         if let Some(window) = handle.get_webview_window("main") {
                             toggle_window(&window, position);
                         }
