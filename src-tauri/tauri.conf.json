@@ -10,7 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "macOSPrivateApi": true,
     "windows": [{
       "label": "main",
       "title": "Cheat Dock",
@@ -29,6 +28,6 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
-    "icon": []
+    "icon": ["icons/icon.png"]
   }
 }

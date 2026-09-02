@@ -3,6 +3,7 @@ import type { CheatItem, CheatSheet } from './model.ts';
 export interface SearchHit {
   sheetId: string;
   sheetTitle: string;
+  sectionId: string;
   sectionTitle: string;
   item: CheatItem;
   score: number;
@@ -11,10 +12,7 @@ export interface SearchHit {
 export function normalize(value: string): string {
   return value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }
-
-function tokens(value: string): string[] {
-  return normalize(value).split(/[\s,;:/]+/).filter(Boolean);
-}
+function tokens(value: string): string[] { return normalize(value).split(/[\s,;:/]+/).filter(Boolean); }
 
 export function searchSheets(sheets: CheatSheet[], query: string): SearchHit[] {
   const queryTokens = tokens(query);
@@ -38,7 +36,7 @@ export function searchSheets(sheets: CheatSheet[], query: string): SearchHit[] {
           else if (rest.includes(token)) score += 2;
           else { matched = false; break; }
         }
-        if (matched) hits.push({ sheetId: sheet.id, sheetTitle: sheet.title, sectionTitle: section.title, item, score });
+        if (matched) hits.push({ sheetId: sheet.id, sheetTitle: sheet.title, sectionId: section.id, sectionTitle: section.title, item, score });
       }
     }
   }
