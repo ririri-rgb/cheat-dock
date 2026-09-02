@@ -10,7 +10,7 @@ name = "cheat_dock_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.6.4", features = [] }
+tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
