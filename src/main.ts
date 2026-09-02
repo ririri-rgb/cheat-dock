@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { loadBuiltins } from './builtins.ts';
 import { detectLocale, sheetLabel } from './locale.ts';
 import { sheetForApplication, type ForegroundApplication } from './native.ts';
+import { deletePersonalItem, editPersonalItem, itemFromDraft, normalizeItemDraft, type ItemDraft } from './personal-items.ts';
 import { compactItemView, recentItemViews } from './presentation.ts';
 import { searchSheets } from './search.ts';
 import { ImeAwareSearchInput } from './search-input.ts';
@@ -47,8 +48,8 @@ function escapeHtml(value: string) {
   return el.innerHTML;
 }
 
-function field(label: string, value = '') {
-  return `<label>${label}<input data-field="${label.toLowerCase()}" value="${escapeHtml(value)}"></label>`;
+function field(name: string, label: string, value = '', required = false) {
+  return `<label>${label}<input data-field="${name}" value="${escapeHtml(value)}"${required ? ' required' : ''}></label>`;
 }
 
 function addItem(sheet: CheatSheet, sectionTitle: string, item: CheatItem) {
@@ -69,74 +70,76 @@ function addItem(sheet: CheatSheet, sectionTitle: string, item: CheatItem) {
   persist({ ...state, overlays: { ...state.overlays, [sheet.id]: overlays } });
 }
 
-function openEditor(sheet: CheatSheet) {
+function readItemDraft(dialog: HTMLDialogElement): ItemDraft {
+  const get = (name: string) => dialog.querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.value ?? '';
+  return { title: get('title'), section: get('section'), shortcut: get('shortcut'), command: get('command'), description: get('description') };
+}
+
+function openItemEditor(sheet: CheatSheet, section?: CheatSection, item?: CheatItem) {
   const dialog = document.createElement('dialog');
-  dialog.innerHTML = `<form method="dialog" class="editor"><h2>Add personal item</h2>${field('Title')}${field('Section', 'Personal')}${field('Shortcut')}${field('Command')}${field('Description')}<div class="actions"><button value="cancel">Cancel</button><button value="default">Add</button></div></form>`;
+  const editing = Boolean(section && item);
+  dialog.innerHTML = `<form class="editor"><h2>${editing ? 'Edit personal item' : 'Add personal item'}</h2>${field('title', 'Title', item?.title ?? '', true)}${field('section', 'Section', section?.title ?? 'Personal', true)}${field('shortcut', 'Shortcut', item?.shortcut ?? '')}${field('command', 'Command', item?.command ?? '')}${field('description', 'Description', item?.description ?? '')}<p class="form-error" hidden>Title and section are required.</p><div class="actions"><button type="button" data-cancel>Cancel</button><button type="submit">${editing ? 'Save' : 'Add'}</button></div></form>`;
   document.body.append(dialog);
-  dialog.showModal();
-  dialog.addEventListener('close', () => {
-    if (dialog.returnValue === 'default') {
-      const get = (name: string) => (dialog.querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.value ?? '').trim();
-      const title = get('title');
-      const sectionTitle = get('section') || 'Personal';
-      if (title) addItem(sheet, sectionTitle, {
-        id: `user-${crypto.randomUUID()}`,
-        title,
-        kind: get('command') ? 'command' : get('shortcut') ? 'shortcut' : 'operation',
-        shortcut: get('shortcut') || undefined,
-        command: get('command') || undefined,
-        description: get('description') || undefined,
-        aliases: [], tags: [], userOwned: true
-      });
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  dialog.querySelector<HTMLButtonElement>('[data-cancel]')!.onclick = () => dialog.close('cancel');
+  dialog.querySelector<HTMLFormElement>('form')!.onsubmit = (event) => {
+    event.preventDefault();
+    const draft = readItemDraft(dialog);
+    const normalized = normalizeItemDraft(draft);
+    const nextItem = itemFromDraft(item?.id ?? `user-${crypto.randomUUID()}`, draft, item);
+    if (!normalized || !nextItem) {
+      dialog.querySelector<HTMLElement>('.form-error')!.hidden = false;
+      return;
     }
-    dialog.remove();
-  });
+    dialog.close('save');
+    if (editing && section && item) persist(editPersonalItem(state, sheet.id, section.id, item.id, draft));
+    else addItem(sheet, normalized.section, nextItem);
+  };
+  dialog.showModal();
+  dialog.querySelector<HTMLInputElement>('[data-field="title"]')?.focus();
+}
+
+function openDeleteDialog(sheet: CheatSheet, section: CheatSection, item: CheatItem) {
+  const dialog = document.createElement('dialog');
+  dialog.innerHTML = `<form class="editor"><h2>Delete personal item?</h2><p class="confirm-copy">${escapeHtml(item.title)}</p><div class="actions"><button type="button" data-cancel>Cancel</button><button type="submit" class="danger-action">Delete</button></div></form>`;
+  document.body.append(dialog);
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  dialog.querySelector<HTMLButtonElement>('[data-cancel]')!.onclick = () => dialog.close('cancel');
+  dialog.querySelector<HTMLFormElement>('form')!.onsubmit = (event) => {
+    event.preventDefault();
+    dialog.close('delete');
+    persist(deletePersonalItem(state, sheet.id, section.id, item.id));
+  };
+  dialog.showModal();
 }
 
 function createSheet() {
-  const title = prompt('Cheat Sheet name');
-  if (!title?.trim()) return;
-  const sheet: CheatSheet = {
-    id: `user-${crypto.randomUUID()}`,
-    title: title.trim(), aliases: [], applications: [], related: [],
-    sections: [{ id: 'notes', title: 'Notes', items: [], userOwned: true }], userOwned: true
+  const dialog = document.createElement('dialog');
+  dialog.innerHTML = `<form class="editor"><h2>New Cheat Sheet</h2>${field('name', 'Name', '', true)}<p class="form-error" hidden>Name is required.</p><div class="actions"><button type="button" data-cancel>Cancel</button><button type="submit">Create</button></div></form>`;
+  document.body.append(dialog);
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  dialog.querySelector<HTMLButtonElement>('[data-cancel]')!.onclick = () => dialog.close('cancel');
+  dialog.querySelector<HTMLFormElement>('form')!.onsubmit = (event) => {
+    event.preventDefault();
+    const title = dialog.querySelector<HTMLInputElement>('[data-field="name"]')?.value.normalize('NFKC').replace(/\s+/g, ' ').trim() ?? '';
+    if (!title) {
+      dialog.querySelector<HTMLElement>('.form-error')!.hidden = false;
+      return;
+    }
+    const sheet: CheatSheet = {
+      id: `user-${crypto.randomUUID()}`,
+      title, aliases: [], applications: [], related: [],
+      sections: [{ id: 'notes', title: 'Notes', items: [], userOwned: true }], userOwned: true
+    };
+    dialog.close('create');
+    state = { ...state, userSheets: [...state.userSheets, sheet] };
+    saveState(localStorage, state);
+    selectedId = sheet.id;
+    query = '';
+    render();
   };
-  state = { ...state, userSheets: [...state.userSheets, sheet] };
-  saveState(localStorage, state);
-  selectedId = sheet.id;
-  query = '';
-  render();
-}
-
-function updateUserItem(sheet: CheatSheet, sectionId: string, itemId: string, updater: (item: CheatItem) => CheatItem) {
-  if (sheet.userOwned) {
-    persist({ ...state, userSheets: state.userSheets.map((value) => value.id !== sheet.id ? value : {
-      ...value,
-      sections: value.sections.map((section) => section.id !== sectionId ? section : {
-        ...section, items: section.items.map((item) => item.id === itemId ? updater(item) : item)
-      })
-    }) });
-    return;
-  }
-  persist({ ...state, overlays: { ...state.overlays, [sheet.id]: (state.overlays[sheet.id] ?? []).map((section) => section.id !== sectionId ? section : {
-    ...section, items: section.items.map((item) => item.id === itemId ? updater(item) : item)
-  }) } });
-}
-
-function removeUserItem(sheet: CheatSheet, sectionId: string, itemId: string) {
-  if (sheet.userOwned) {
-    persist({ ...state, userSheets: state.userSheets.map((value) => value.id !== sheet.id ? value : {
-      ...value,
-      sections: value.sections.map((section) => section.id !== sectionId ? section : {
-        ...section, items: section.items.filter((item) => item.id !== itemId)
-      })
-    }) });
-    return;
-  }
-  const overlays = (state.overlays[sheet.id] ?? [])
-    .map((section) => section.id !== sectionId ? section : { ...section, items: section.items.filter((item) => item.id !== itemId) })
-    .filter((section) => section.items.length > 0);
-  persist({ ...state, overlays: { ...state.overlays, [sheet.id]: overlays } });
+  dialog.showModal();
+  dialog.querySelector<HTMLInputElement>('[data-field="name"]')?.focus();
 }
 
 function itemValueMarkup(item: CheatItem): string {
@@ -217,7 +220,7 @@ function render(options: { focusSearch?: boolean } = {}) {
   });
 
   root.querySelector<HTMLButtonElement>('#pin')!.onclick = () => persist(togglePin(state, sheet.id));
-  root.querySelector<HTMLButtonElement>('#add')!.onclick = () => openEditor(sheet);
+  root.querySelector<HTMLButtonElement>('#add')!.onclick = () => openItemEditor(sheet);
   root.querySelector<HTMLButtonElement>('#create')!.onclick = createSheet;
 
   root.querySelectorAll<HTMLDetailsElement>('details[data-section]').forEach((details) => details.ontoggle = () => {
@@ -267,17 +270,18 @@ function render(options: { focusSearch?: boolean } = {}) {
     event.stopPropagation();
     const [sheetId, sectionId, itemId] = button.dataset.edit!.split(':');
     const targetSheet = sheets.find((candidate) => candidate.id === sheetId);
-    const item = targetSheet?.sections.find((section) => section.id === sectionId)?.items.find((value) => value.id === itemId);
-    if (!targetSheet || !sectionId || !itemId || !item) return;
-    const title = prompt('Item title', item.title);
-    if (title?.trim()) updateUserItem(targetSheet, sectionId, itemId, (value) => ({ ...value, title: title.trim() }));
+    const section = targetSheet?.sections.find((candidate) => candidate.id === sectionId);
+    const item = section?.items.find((value) => value.id === itemId);
+    if (targetSheet && section && item?.userOwned) openItemEditor(targetSheet, section, item);
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((button) => button.onclick = (event) => {
     event.stopPropagation();
     const [sheetId, sectionId, itemId] = button.dataset.delete!.split(':');
     const targetSheet = sheets.find((candidate) => candidate.id === sheetId);
-    if (targetSheet && sectionId && itemId && confirm('Delete this personal item?')) removeUserItem(targetSheet, sectionId, itemId);
+    const section = targetSheet?.sections.find((candidate) => candidate.id === sectionId);
+    const item = section?.items.find((value) => value.id === itemId);
+    if (targetSheet && section && item?.userOwned) openDeleteDialog(targetSheet, section, item);
   });
 
   if (options.focusSearch) {
