@@ -179,10 +179,19 @@ export function togglePin(state: AppState, sheetId: string): AppState {
 export function mergeSheet(sheet: CheatSheet, overlays: CheatSection[] | undefined): CheatSheet {
   if (!overlays?.length) return sheet;
   const sections = sheet.sections.map((section) => ({ ...section, items: [...section.items] }));
+  const itemIds = new Set(sections.flatMap((section) => section.items.map((item) => item.id)));
+
   for (const overlay of overlays) {
+    const uniqueItems = overlay.items.flatMap((item) => {
+      if (itemIds.has(item.id)) return [];
+      itemIds.add(item.id);
+      return [{ ...item, userOwned: true }];
+    });
+    if (!uniqueItems.length) continue;
+
     const existing = sections.find((section) => section.id === overlay.id);
-    if (existing) existing.items.push(...overlay.items.map((item) => ({ ...item, userOwned: true })));
-    else sections.push({ ...overlay, userOwned: true, items: overlay.items.map((item) => ({ ...item, userOwned: true })) });
+    if (existing) existing.items.push(...uniqueItems);
+    else sections.push({ ...overlay, userOwned: true, items: uniqueItems });
   }
   return { ...sheet, sections };
 }

@@ -56,3 +56,19 @@ test('user overlays do not mutate built-in sheet', () => {
   assert.equal(merged.sections[0]?.items.length, 1);
   assert.equal(sheet.sections[0]?.items.length, 0);
 });
+
+test('overlay item IDs cannot collide with built-in or earlier overlay items', () => {
+  const sheet: CheatSheet = {
+    id: 'git', title: 'Git', aliases: [], applications: [], related: [],
+    sections: [{ id: 'base', title: 'Base', items: [{ id: 'status', title: 'Status', kind: 'command', command: 'git status', aliases: [], tags: [] }] }]
+  };
+  const merged = mergeSheet(sheet, [
+    { id: 'base', title: 'Base', items: [{ id: 'status', title: 'Collision', kind: 'command', aliases: [], tags: [] }] },
+    { id: 'personal', title: 'Personal', items: [
+      { id: 'user-one', title: 'One', kind: 'command', aliases: [], tags: [] },
+      { id: 'user-one', title: 'Duplicate', kind: 'command', aliases: [], tags: [] }
+    ] }
+  ]);
+  assert.equal(merged.sections[0]?.items.length, 1);
+  assert.equal(merged.sections.find((section) => section.id === 'personal')?.items.length, 1);
+});
