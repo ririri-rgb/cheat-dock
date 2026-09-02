@@ -17,6 +17,12 @@ export interface RecentItemView {
   view: CompactItemView;
 }
 
+export function gridColumnsForWidth(width: number): 1 | 2 | 3 {
+  if (width <= 440) return 1;
+  if (width <= 620) return 2;
+  return 3;
+}
+
 export function itemLayout(item: CheatItem): ItemLayout {
   if (item.shortcut) return 'compact';
   const commandLength = item.command?.trim().length ?? 0;
