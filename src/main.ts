@@ -158,7 +158,7 @@ function renderRecent(sheet: CheatSheet): string {
   const views = recentItemViews(sheet, state.recent[sheet.id] ?? [], locale);
   if (!views.length) return '';
   return `<details open class="recent-section"><summary>${text.recent}</summary><div class="item-grid recent-grid">${views.map(({ section, item, view }) => {
-    const value = view.value ? `<span class="recent-value ${view.valueKind ?? ''}" title="${escapeHtml(view.value)}">${view.valueKind === 'command' ? `<code>${escapeHtml(view.value)}</code>` : `<kbd>${escapeHtml(view.value)}</kbd>`}</span>` : '';
+    const value = view.value ? `<span class="recent-value ${view.valueKind ?? ''}" title="${escapeAttr(view.value)}">${view.valueKind === 'command' ? `<code>${escapeHtml(view.value)}</code>` : `<kbd>${escapeHtml(view.value)}</kbd>`}</span>` : '';
     return `<button class="recent-item layout-${view.layout}" data-jump="${escapeHtml(`${section.id}:${item.id}`)}"><span>${escapeHtml(view.label)}</span>${value}</button>`;
   }).join('')}</div></details>`;
 }
