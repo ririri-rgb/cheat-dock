@@ -11,9 +11,16 @@ test('menu-bar CRUD avoids browser prompt/confirm modals', () => {
   assert.match(main, /showModal\(\)/);
 });
 
-test('item and Sheet delete confirmations use explicit destructive styling', () => {
+test('item and Sheet deletion both require in-app confirmation dialogs', () => {
+  assert.match(main, /Delete personal item\?/);
+  assert.match(main, /Delete “\$\{escapeHtml\(sheet\.title\)\}”\?/);
+  assert.match(main, /\[data-cancel\][\s\S]*?dialog\.close\('cancel'\)/);
+});
+
+test('destructive actions use explicit red styling instead of browser defaults', () => {
   assert.match(main, /class=\"danger-action\"/);
   assert.match(styles, /\.actions \.danger-action\s*\{/);
   assert.match(styles, /background:\s*var\(--danger-bg\)/);
   assert.match(styles, /color:\s*white/);
+  assert.match(styles, /appearance:\s*none/);
 });
