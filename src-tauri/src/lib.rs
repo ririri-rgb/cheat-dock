@@ -1,4 +1,7 @@
+mod storage;
+
 use serde::Serialize;
+use std::path::PathBuf;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, PhysicalPosition, Position, WebviewWindow};
 
@@ -22,6 +25,45 @@ fn foreground_application() -> ForegroundApplication {
         }
     }
     ForegroundApplication { bundle_id: None, name: None }
+}
+
+fn storage_root(app: &tauri::AppHandle) -> Result<PathBuf, storage::CommandError> {
+    app.path()
+        .app_data_dir()
+        .map(|path| storage::user_data_root(&path))
+        .map_err(|error| storage::CommandError {
+            code: "app-data-path".into(),
+            message: format!("Unable to resolve the OS application-data directory: {error}"),
+            relative_path: None,
+        })
+}
+
+#[tauri::command]
+fn load_user_documents(app: tauri::AppHandle) -> Result<storage::LoadResult, storage::CommandError> {
+    storage::load_from_root(&storage_root(&app)?)
+}
+
+#[tauri::command]
+fn write_user_document(
+    app: tauri::AppHandle,
+    request: storage::WriteRequest,
+) -> Result<storage::WriteResult, storage::CommandError> {
+    storage::write_to_root(&storage_root(&app)?, &request)
+}
+
+#[tauri::command]
+fn delete_user_document(
+    app: tauri::AppHandle,
+    request: storage::DeleteRequest,
+) -> Result<(), storage::CommandError> {
+    storage::delete_from_root(&storage_root(&app)?, &request)
+}
+
+#[tauri::command]
+fn user_data_path(app: tauri::AppHandle) -> Result<String, storage::CommandError> {
+    let root = storage_root(&app)?;
+    storage::ensure_layout(&root)?;
+    Ok(root.to_string_lossy().to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -59,6 +101,12 @@ fn toggle_window(window: &WebviewWindow, tray_position: PhysicalPosition<f64>) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            load_user_documents,
+            write_user_document,
+            delete_user_document,
+            user_data_path
+        ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
