@@ -1,12 +1,13 @@
 import { itemLabel } from './locale.ts';
 import type { CheatItem, CheatSection, CheatSheet, SupportedLocale } from './model.ts';
-import { formatMacShortcut } from './shortcut.ts';
+import { formatExplicitKeyboardChords, formatMacShortcut } from './shortcut.ts';
 
 export type ItemLayout = 'compact' | 'wide' | 'full';
 
 export interface CompactItemView {
   label: string;
   value?: string;
+  rawValue?: string;
   valueKind?: 'shortcut' | 'command';
   layout: ItemLayout;
 }
@@ -33,8 +34,24 @@ export function itemLayout(item: CheatItem): ItemLayout {
 
 export function compactItemView(item: CheatItem, locale: SupportedLocale): CompactItemView {
   const layout = itemLayout(item);
-  if (item.shortcut) return { label: itemLabel(item, locale), value: formatMacShortcut(item.shortcut), valueKind: 'shortcut', layout };
-  if (item.command) return { label: itemLabel(item, locale), value: item.command, valueKind: 'command', layout };
+  if (item.shortcut) {
+    return {
+      label: itemLabel(item, locale),
+      value: formatMacShortcut(item.shortcut),
+      rawValue: item.shortcut,
+      valueKind: 'shortcut',
+      layout
+    };
+  }
+  if (item.command) {
+    return {
+      label: itemLabel(item, locale),
+      value: formatExplicitKeyboardChords(item.command),
+      rawValue: item.command,
+      valueKind: 'command',
+      layout
+    };
+  }
   return { label: itemLabel(item, locale), layout };
 }
 

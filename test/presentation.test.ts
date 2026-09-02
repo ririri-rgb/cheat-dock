@@ -12,9 +12,18 @@ const sheet: CheatSheet = {
   ] }]
 };
 
-test('compact view formats user-created shortcuts at presentation time', () => {
-  assert.deepEqual(compactItemView(shortcut, 'ja'), { label: 'コピー', value: '⌘ C', valueKind: 'shortcut', layout: 'compact' });
+test('compact view formats user-created shortcuts at presentation time while retaining raw copy/storage value', () => {
+  assert.deepEqual(compactItemView(shortcut, 'ja'), { label: 'コピー', value: '⌘ C', rawValue: 'Command + C', valueKind: 'shortcut', layout: 'compact' });
   assert.equal(shortcut.shortcut, 'Command + C');
+});
+
+test('command presentation formats explicit keyboard chords without changing raw command text', () => {
+  const item: CheatItem = { id: 'palette', title: 'Palette', kind: 'procedure', command: 'Press Command + K to continue', aliases: [], tags: [] };
+  const view = compactItemView(item, 'en');
+  assert.equal(view.value, 'Press ⌘ K to continue');
+  assert.equal(view.rawValue, 'Press Command + K to continue');
+  const shell: CheatItem = { ...item, id: 'which', command: 'command -v node' };
+  assert.equal(compactItemView(shell, 'en').value, 'command -v node');
 });
 
 test('layout intent keeps short items compact and gives long commands more width', () => {
@@ -32,9 +41,10 @@ test('responsive grid intent is three columns by default, two at medium width, o
   assert.equal(gridColumnsForWidth(390), 1);
 });
 
-test('recent view uses localized label and formatted shortcut', () => {
+test('recent view uses localized label and formatted shortcut with raw value preserved', () => {
   const recent = recentItemViews(sheet, ['copy'], 'ja');
   assert.equal(recent[0]?.view.label, 'コピー');
   assert.equal(recent[0]?.view.value, '⌘ C');
+  assert.equal(recent[0]?.view.rawValue, 'Command + C');
   assert.equal(recent[0]?.section.id, 'working-tree');
 });
