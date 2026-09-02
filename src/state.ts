@@ -77,6 +77,7 @@ function sanitizeSections(value: unknown): CheatSection[] {
     sections.push({
       id,
       title,
+      localizedTitles: safeLocalizedTitles(candidate.localizedTitles),
       items: candidate.items.slice(0, MAX_LIST).flatMap((item) => {
         const sanitized = sanitizeItem(item, itemIds);
         return sanitized ? [sanitized] : [];

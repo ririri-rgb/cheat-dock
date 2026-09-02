@@ -1,10 +1,14 @@
 import { itemLabel } from './locale.ts';
 import type { CheatItem, CheatSection, CheatSheet, SupportedLocale } from './model.ts';
+import { formatMacShortcut } from './shortcut.ts';
+
+export type ItemLayout = 'compact' | 'wide' | 'full';
 
 export interface CompactItemView {
   label: string;
   value?: string;
   valueKind?: 'shortcut' | 'command';
+  layout: ItemLayout;
 }
 
 export interface RecentItemView {
@@ -13,10 +17,19 @@ export interface RecentItemView {
   view: CompactItemView;
 }
 
+export function itemLayout(item: CheatItem): ItemLayout {
+  if (item.shortcut) return 'compact';
+  const commandLength = item.command?.trim().length ?? 0;
+  if (commandLength >= 58) return 'full';
+  if (commandLength >= 24) return 'wide';
+  return 'compact';
+}
+
 export function compactItemView(item: CheatItem, locale: SupportedLocale): CompactItemView {
-  if (item.shortcut) return { label: itemLabel(item, locale), value: item.shortcut, valueKind: 'shortcut' };
-  if (item.command) return { label: itemLabel(item, locale), value: item.command, valueKind: 'command' };
-  return { label: itemLabel(item, locale) };
+  const layout = itemLayout(item);
+  if (item.shortcut) return { label: itemLabel(item, locale), value: formatMacShortcut(item.shortcut), valueKind: 'shortcut', layout };
+  if (item.command) return { label: itemLabel(item, locale), value: item.command, valueKind: 'command', layout };
+  return { label: itemLabel(item, locale), layout };
 }
 
 export function recentItemViews(sheet: CheatSheet, recentIds: readonly string[], locale: SupportedLocale): RecentItemView[] {

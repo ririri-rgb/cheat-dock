@@ -1,7 +1,6 @@
 ---
 id: terminal
 title: Terminal
-title-ja: ターミナル
 description: macOS Terminal and shell reference starters.
 aliases: shell, zsh
 applications: com.apple.Terminal, com.googlecode.iterm2

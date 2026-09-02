@@ -20,6 +20,7 @@ export interface CheatItem {
 export interface CheatSection {
   id: string;
   title: string;
+  localizedTitles?: LocalizedTitles;
   items: CheatItem[];
   userOwned?: boolean;
 }

@@ -1,12 +1,13 @@
 import './styles.css';
 import { listen } from '@tauri-apps/api/event';
 import { loadBuiltins } from './builtins.ts';
-import { detectLocale, sheetLabel } from './locale.ts';
+import { detectLocale, sectionLabel, sheetLabel } from './locale.ts';
 import { sheetForApplication, type ForegroundApplication } from './native.ts';
 import { deletePersonalItem, editPersonalItem, itemFromDraft, normalizeItemDraft, type ItemDraft } from './personal-items.ts';
 import { compactItemView, recentItemViews } from './presentation.ts';
 import { searchSheets } from './search.ts';
 import { ImeAwareSearchInput } from './search-input.ts';
+import { uiText } from './ui-text.ts';
 import { loadState, mergeSheet, recordRecent, saveState, togglePin } from './state.ts';
 import type { AppState, CheatItem, CheatSection, CheatSheet } from './model.ts';
 
@@ -18,15 +19,7 @@ let state = loadState(localStorage);
 let selectedId = builtins.find((sheet) => sheet.id === 'my-work')?.id ?? builtins[0]?.id ?? 'my-work';
 let query = '';
 
-const text = locale === 'ja' ? {
-  allSheets: 'すべて…', search: 'すべてのチートシートを検索', pin: 'ピン留め', unpin: 'ピン解除',
-  addItem: '＋ 項目', addSheet: '＋ シート', recent: '最近見た項目', noMatches: '一致する項目はありません。',
-  noItems: '項目はまだありません。', results: '件', resultSuffix: '件の検索結果'
-} : {
-  allSheets: 'All Sheets…', search: 'Search all Cheat Sheets', pin: 'Pin', unpin: 'Unpin',
-  addItem: '＋ Item', addSheet: '＋ Sheet', recent: 'Recently viewed', noMatches: 'No matches.',
-  noItems: 'No items yet.', results: 'results', resultSuffix: 'results across all sheets'
-};
+const text = uiText(locale);
 
 function allSheets(): CheatSheet[] {
   return [...builtins.map((sheet) => mergeSheet(sheet, state.overlays[sheet.id])), ...state.userSheets];
@@ -48,8 +41,12 @@ function escapeHtml(value: string) {
   return el.innerHTML;
 }
 
+function escapeAttr(value: string) {
+  return escapeHtml(value).replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function field(name: string, label: string, value = '', required = false) {
-  return `<label>${label}<input data-field="${name}" value="${escapeHtml(value)}"${required ? ' required' : ''}></label>`;
+  return `<label>${label}<input data-field="${escapeAttr(name)}" value="${escapeAttr(value)}"${required ? ' required' : ''}></label>`;
 }
 
 function addItem(sheet: CheatSheet, sectionTitle: string, item: CheatItem) {
@@ -146,14 +143,15 @@ function itemValueMarkup(item: CheatItem): string {
   const view = compactItemView(item, locale);
   if (!view.value || !view.valueKind) return '';
   const value = escapeHtml(view.value);
-  const content = view.valueKind === 'shortcut' ? `<kbd>${value}</kbd>` : `<code title="${value}">${value}</code>`;
-  return `<button class="item-value copy ${view.valueKind}" data-copy="${value}" title="Copy ${value}" aria-label="Copy ${value}">${content}</button>`;
+  const valueAttr = escapeAttr(view.value);
+  const content = view.valueKind === 'shortcut' ? `<kbd>${value}</kbd>` : `<code title="${valueAttr}">${value}</code>`;
+  return `<button class="item-value copy ${view.valueKind}" data-copy="${valueAttr}" title="Copy ${valueAttr}" aria-label="Copy ${valueAttr}">${content}</button>`;
 }
 
 function renderItem(sheet: CheatSheet, section: CheatSection, item: CheatItem, context?: string) {
   const view = compactItemView(item, locale);
   const editRef = `${sheet.id}:${section.id}:${item.id}`;
-  return `<div class="item-cell">${context ? `<div class="search-context">${escapeHtml(context)}</div>` : ''}<article id="item-${escapeHtml(sheet.id)}-${escapeHtml(item.id)}" class="item" tabindex="0" data-view="${escapeHtml(`${sheet.id}:${item.id}`)}"><span class="item-label">${escapeHtml(view.label)}</span>${itemValueMarkup(item)}${item.userOwned ? `<span class="user-actions"><button data-edit="${escapeHtml(editRef)}">Edit</button><button class="danger" data-delete="${escapeHtml(editRef)}">Delete</button></span>` : ''}</article></div>`;
+  return `<div class="item-cell layout-${view.layout}">${context ? `<div class="search-context">${escapeHtml(context)}</div>` : ''}<article id="item-${escapeHtml(sheet.id)}-${escapeHtml(item.id)}" class="item" tabindex="0" data-view="${escapeHtml(`${sheet.id}:${item.id}`)}"><span class="item-label">${escapeHtml(view.label)}</span>${itemValueMarkup(item)}${item.userOwned ? `<span class="user-actions"><button data-edit="${escapeHtml(editRef)}">${text.edit}</button><button class="danger" data-delete="${escapeHtml(editRef)}">${text.delete}</button></span>` : ''}</article></div>`;
 }
 
 function renderRecent(sheet: CheatSheet): string {
@@ -161,7 +159,7 @@ function renderRecent(sheet: CheatSheet): string {
   if (!views.length) return '';
   return `<details open class="recent-section"><summary>${text.recent}</summary><div class="item-grid recent-grid">${views.map(({ section, item, view }) => {
     const value = view.value ? `<span class="recent-value ${view.valueKind ?? ''}" title="${escapeHtml(view.value)}">${view.valueKind === 'command' ? `<code>${escapeHtml(view.value)}</code>` : `<kbd>${escapeHtml(view.value)}</kbd>`}</span>` : '';
-    return `<button class="recent-item" data-jump="${escapeHtml(`${section.id}:${item.id}`)}"><span>${escapeHtml(view.label)}</span>${value}</button>`;
+    return `<button class="recent-item layout-${view.layout}" data-jump="${escapeHtml(`${section.id}:${item.id}`)}"><span>${escapeHtml(view.label)}</span>${value}</button>`;
   }).join('')}</div></details>`;
 }
 
@@ -184,9 +182,9 @@ function render(options: { focusSearch?: boolean } = {}) {
         const context = `${hit.sheetTitle} › ${hit.sectionTitle}`;
         return renderItem(hitSheet, { id: hit.sectionId, title: hit.sectionTitle, items: [] }, hit.item, context);
       }).join('')}</div>${hits.length ? '' : `<p class="muted">${text.noMatches}</p>`}`
-    : `${renderRecent(sheet)}${sheet.sections.map((section) => `<details ${state.expanded[sheet.id]?.includes(section.id) ? 'open' : ''} data-section="${escapeHtml(section.id)}"><summary>${escapeHtml(section.title)} <span>${section.items.length}</span></summary><div class="item-grid">${section.items.map((item) => renderItem(sheet, section, item)).join('') || `<p class="muted">${text.noItems}</p>`}</div></details>`).join('')}`;
+    : `${renderRecent(sheet)}${sheet.sections.map((section) => `<details ${state.expanded[sheet.id]?.includes(section.id) ? 'open' : ''} data-section="${escapeHtml(section.id)}"><summary>${escapeHtml(sectionLabel(section, locale))} <span>${section.items.length}</span></summary><div class="item-grid">${section.items.map((item) => renderItem(sheet, section, item)).join('') || `<p class="muted">${text.noItems}</p>`}</div></details>`).join('')}`;
 
-  root.innerHTML = `<main><header><div class="nav">${visibleNav.map((candidate) => `<button class="sheet-tab ${candidate.id === sheet.id ? 'active' : ''}" data-sheet="${escapeHtml(candidate.id)}">${escapeHtml(sheetLabel(candidate, locale))}</button>`).join('')}<select id="all-sheets" aria-label="${escapeHtml(text.allSheets)}"><option value="">${text.allSheets}</option>${sheets.map((candidate) => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(sheetLabel(candidate, locale))}</option>`).join('')}</select></div><div class="toolbar"><input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(text.search)}" value="${escapeHtml(query)}"><div class="toolbar-actions"><button id="pin">${state.pinned.includes(sheet.id) ? text.unpin : text.pin}</button><button id="add">${text.addItem}</button><button id="create">${text.addSheet}</button></div></div></header><section class="content">${content}</section></main>`;
+  root.innerHTML = `<main><header><div class="nav">${visibleNav.map((candidate) => `<button class="sheet-tab ${candidate.id === sheet.id ? 'active' : ''}" data-sheet="${escapeHtml(candidate.id)}">${escapeHtml(sheetLabel(candidate, locale))}</button>`).join('')}<select id="all-sheets" aria-label="${escapeHtml(text.allSheets)}"><option value="">${text.allSheets}</option>${sheets.map((candidate) => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(sheetLabel(candidate, locale))}</option>`).join('')}</select></div><div class="toolbar"><input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="${escapeAttr(text.search)}" value="${escapeAttr(query)}"><div class="toolbar-actions"><button id="pin">${state.pinned.includes(sheet.id) ? text.unpin : text.pin}</button><button id="add">${text.addItem}</button><button id="create">${text.addSheet}</button></div></div></header><section class="content">${content}</section></main>`;
 
   root.querySelectorAll<HTMLButtonElement>('[data-sheet]').forEach((button) => button.onclick = () => {
     selectedId = button.dataset.sheet!;

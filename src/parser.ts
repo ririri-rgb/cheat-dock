@@ -71,11 +71,22 @@ export function parseCheatSheet(markdown: string): CheatSheet {
       item = { id: slug(title), title, kind: 'operation', aliases: [], tags: [] };
       continue;
     }
+
+    const field = line.match(/^- ([a-z][a-z-]*):\s*(.*)$/);
     if (!item) {
+      if (field && section) {
+        const key = field[1];
+        const value = field[2]?.trim() ?? '';
+        if (key === 'title-ja') {
+          if (value) section.localizedTitles = { ...section.localizedTitles, ja: value };
+          continue;
+        }
+        throw new Error(`unknown section field: ${key}`);
+      }
       if (line.trim()) throw new Error(`content outside item: ${line}`);
       continue;
     }
-    const field = line.match(/^- ([a-z][a-z-]*):\s*(.*)$/);
+
     if (field) {
       const key = field[1];
       const value = field[2]?.trim() ?? '';

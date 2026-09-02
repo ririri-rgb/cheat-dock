@@ -9,6 +9,7 @@ related:
 ---
 
 ## Basic
+- title-ja: 基本
 
 ### Copy selection
 - id: copy-selection

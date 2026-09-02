@@ -1,5 +1,5 @@
-import { itemLabel, sheetLabel } from './locale.ts';
-import type { CheatItem, CheatSheet, SupportedLocale } from './model.ts';
+import { itemLabel, sectionLabel, sheetLabel } from './locale.ts';
+import type { CheatItem, CheatSheet, LocalizedTitles, SupportedLocale } from './model.ts';
 
 export interface SearchHit {
   sheetId: string;
@@ -18,8 +18,8 @@ function tokens(value: string): string[] {
   return normalize(value).split(/[\s,;:/]+/).filter(Boolean);
 }
 
-function localizedTitles(item: CheatItem): string[] {
-  return Object.values(item.localizedTitles ?? {}).filter((value): value is string => typeof value === 'string' && value.length > 0);
+function localizedTitleValues(value: LocalizedTitles | undefined): string[] {
+  return Object.values(value ?? {}).filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
 }
 
 export function searchSheets(sheets: CheatSheet[], query: string, locale: SupportedLocale = 'en'): SearchHit[] {
@@ -31,7 +31,7 @@ export function searchSheets(sheets: CheatSheet[], query: string, locale: Suppor
     for (const section of sheet.sections) {
       for (const item of section.items) {
         const preferredTitle = normalize(itemLabel(item, locale));
-        const titleCandidates = Array.from(new Set([item.title, ...localizedTitles(item)].map(normalize).filter(Boolean)));
+        const titleCandidates = Array.from(new Set([item.title, ...localizedTitleValues(item.localizedTitles)].map(normalize).filter(Boolean)));
         const aliases = item.aliases.map(normalize);
         const tags = item.tags.map(normalize);
         const rest = normalize([
@@ -40,8 +40,9 @@ export function searchSheets(sheets: CheatSheet[], query: string, locale: Suppor
           item.shortcut,
           item.body,
           sheet.title,
-          ...Object.values(sheet.localizedTitles ?? {}),
-          section.title
+          ...localizedTitleValues(sheet.localizedTitles),
+          section.title,
+          ...localizedTitleValues(section.localizedTitles)
         ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' '));
 
         let score = 0;
@@ -63,7 +64,7 @@ export function searchSheets(sheets: CheatSheet[], query: string, locale: Suppor
             sheetId: sheet.id,
             sheetTitle: sheetLabel(sheet, locale),
             sectionId: section.id,
-            sectionTitle: section.title,
+            sectionTitle: sectionLabel(section, locale),
             item,
             score
           });
