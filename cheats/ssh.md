@@ -1,6 +1,7 @@
 ---
 id: ssh
 title: SSH
+title-ja: SSH
 description: OpenSSH client reference starters.
 aliases: secure shell, remote
 applications:
@@ -11,6 +12,7 @@ related: terminal
 
 ### Connect to a host
 - id: connect-host
+- title-ja: ホストへ接続
 - kind: command
 - command: ssh user@host
 - aliases: login, remote host, 接続

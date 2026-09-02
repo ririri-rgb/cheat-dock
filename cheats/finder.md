@@ -1,6 +1,7 @@
 ---
 id: finder
 title: Finder
+title-ja: Finder
 description: Verified starter operations for macOS Finder.
 aliases: files, ファインダー
 applications: com.apple.finder
@@ -11,6 +12,7 @@ related: terminal
 
 ### Go to Folder
 - id: go-to-folder
+- title-ja: フォルダへ移動
 - kind: shortcut
 - shortcut: ⇧⌘G
 - aliases: path, folder, フォルダへ移動

@@ -1,6 +1,7 @@
 ---
 id: homebrew
 title: Homebrew
+title-ja: Homebrew
 description: Verified Homebrew command starters.
 aliases: brew, package manager
 applications:
@@ -11,6 +12,7 @@ related: terminal
 
 ### Install a formula
 - id: install-formula
+- title-ja: Formulaをインストール
 - kind: command
 - command: brew install <formula>
 - aliases: install package, formula, パッケージ追加

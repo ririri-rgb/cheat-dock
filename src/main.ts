@@ -1,23 +1,55 @@
 import './styles.css';
 import { listen } from '@tauri-apps/api/event';
 import { loadBuiltins } from './builtins.ts';
+import { detectLocale, sheetLabel } from './locale.ts';
 import { sheetForApplication, type ForegroundApplication } from './native.ts';
+import { compactItemView, recentItemViews } from './presentation.ts';
 import { searchSheets } from './search.ts';
+import { ImeAwareSearchInput } from './search-input.ts';
 import { loadState, mergeSheet, recordRecent, saveState, togglePin } from './state.ts';
 import type { AppState, CheatItem, CheatSection, CheatSheet } from './model.ts';
 
 const root = document.querySelector<HTMLDivElement>('#app')!;
 const builtins = loadBuiltins();
+const locale = detectLocale(navigator.languages);
+const imeSearch = new ImeAwareSearchInput();
 let state = loadState(localStorage);
 let selectedId = builtins.find((sheet) => sheet.id === 'my-work')?.id ?? builtins[0]?.id ?? 'my-work';
-let manualSelection = false;
 let query = '';
 
-function allSheets(): CheatSheet[] { return [...builtins.map((sheet) => mergeSheet(sheet, state.overlays[sheet.id])), ...state.userSheets]; }
-function selected(): CheatSheet | undefined { return allSheets().find((sheet) => sheet.id === selectedId) ?? allSheets()[0]; }
-function persist(next: AppState) { state = next; saveState(localStorage, state); render(); }
-function escapeHtml(value: string) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
-function field(label: string, value = '') { return `<label>${label}<input data-field="${label.toLowerCase()}" value="${escapeHtml(value)}"></label>`; }
+const text = locale === 'ja' ? {
+  allSheets: 'すべて…', search: 'すべてのチートシートを検索', pin: 'ピン留め', unpin: 'ピン解除',
+  addItem: '＋ 項目', addSheet: '＋ シート', recent: '最近見た項目', noMatches: '一致する項目はありません。',
+  noItems: '項目はまだありません。', results: '件', resultSuffix: '件の検索結果'
+} : {
+  allSheets: 'All Sheets…', search: 'Search all Cheat Sheets', pin: 'Pin', unpin: 'Unpin',
+  addItem: '＋ Item', addSheet: '＋ Sheet', recent: 'Recently viewed', noMatches: 'No matches.',
+  noItems: 'No items yet.', results: 'results', resultSuffix: 'results across all sheets'
+};
+
+function allSheets(): CheatSheet[] {
+  return [...builtins.map((sheet) => mergeSheet(sheet, state.overlays[sheet.id])), ...state.userSheets];
+}
+
+function selected(): CheatSheet | undefined {
+  return allSheets().find((sheet) => sheet.id === selectedId) ?? allSheets()[0];
+}
+
+function persist(next: AppState, shouldRender = true) {
+  state = next;
+  saveState(localStorage, state);
+  if (shouldRender) render();
+}
+
+function escapeHtml(value: string) {
+  const el = document.createElement('div');
+  el.textContent = value;
+  return el.innerHTML;
+}
+
+function field(label: string, value = '') {
+  return `<label>${label}<input data-field="${label.toLowerCase()}" value="${escapeHtml(value)}"></label>`;
+}
 
 function addItem(sheet: CheatSheet, sectionTitle: string, item: CheatItem) {
   const sectionId = sectionTitle.toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'personal';
@@ -40,66 +72,223 @@ function addItem(sheet: CheatSheet, sectionTitle: string, item: CheatItem) {
 function openEditor(sheet: CheatSheet) {
   const dialog = document.createElement('dialog');
   dialog.innerHTML = `<form method="dialog" class="editor"><h2>Add personal item</h2>${field('Title')}${field('Section', 'Personal')}${field('Shortcut')}${field('Command')}${field('Description')}<div class="actions"><button value="cancel">Cancel</button><button value="default">Add</button></div></form>`;
-  document.body.append(dialog); dialog.showModal();
+  document.body.append(dialog);
+  dialog.showModal();
   dialog.addEventListener('close', () => {
     if (dialog.returnValue === 'default') {
       const get = (name: string) => (dialog.querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.value ?? '').trim();
-      const title = get('title'); const sectionTitle = get('section') || 'Personal';
-      if (title) addItem(sheet, sectionTitle, { id: `user-${crypto.randomUUID()}`, title, kind: get('command') ? 'command' : get('shortcut') ? 'shortcut' : 'operation', shortcut: get('shortcut') || undefined, command: get('command') || undefined, description: get('description') || undefined, aliases: [], tags: [], userOwned: true });
+      const title = get('title');
+      const sectionTitle = get('section') || 'Personal';
+      if (title) addItem(sheet, sectionTitle, {
+        id: `user-${crypto.randomUUID()}`,
+        title,
+        kind: get('command') ? 'command' : get('shortcut') ? 'shortcut' : 'operation',
+        shortcut: get('shortcut') || undefined,
+        command: get('command') || undefined,
+        description: get('description') || undefined,
+        aliases: [], tags: [], userOwned: true
+      });
     }
     dialog.remove();
   });
 }
 
 function createSheet() {
-  const title = prompt('Cheat Sheet name'); if (!title?.trim()) return;
-  const sheet: CheatSheet = { id: `user-${crypto.randomUUID()}`, title: title.trim(), aliases: [], applications: [], related: [], sections: [{ id: 'notes', title: 'Notes', items: [], userOwned: true }], userOwned: true };
-  state = { ...state, userSheets: [...state.userSheets, sheet] }; saveState(localStorage, state); selectedId = sheet.id; manualSelection = true; render();
+  const title = prompt('Cheat Sheet name');
+  if (!title?.trim()) return;
+  const sheet: CheatSheet = {
+    id: `user-${crypto.randomUUID()}`,
+    title: title.trim(), aliases: [], applications: [], related: [],
+    sections: [{ id: 'notes', title: 'Notes', items: [], userOwned: true }], userOwned: true
+  };
+  state = { ...state, userSheets: [...state.userSheets, sheet] };
+  saveState(localStorage, state);
+  selectedId = sheet.id;
+  query = '';
+  render();
 }
 
 function updateUserItem(sheet: CheatSheet, sectionId: string, itemId: string, updater: (item: CheatItem) => CheatItem) {
   if (sheet.userOwned) {
-    persist({ ...state, userSheets: state.userSheets.map((value) => value.id !== sheet.id ? value : { ...value, sections: value.sections.map((section) => section.id !== sectionId ? section : { ...section, items: section.items.map((item) => item.id === itemId ? updater(item) : item) }) }) });
+    persist({ ...state, userSheets: state.userSheets.map((value) => value.id !== sheet.id ? value : {
+      ...value,
+      sections: value.sections.map((section) => section.id !== sectionId ? section : {
+        ...section, items: section.items.map((item) => item.id === itemId ? updater(item) : item)
+      })
+    }) });
     return;
   }
-  persist({ ...state, overlays: { ...state.overlays, [sheet.id]: (state.overlays[sheet.id] ?? []).map((section) => section.id !== sectionId ? section : { ...section, items: section.items.map((item) => item.id === itemId ? updater(item) : item) }) } });
+  persist({ ...state, overlays: { ...state.overlays, [sheet.id]: (state.overlays[sheet.id] ?? []).map((section) => section.id !== sectionId ? section : {
+    ...section, items: section.items.map((item) => item.id === itemId ? updater(item) : item)
+  }) } });
 }
 
 function removeUserItem(sheet: CheatSheet, sectionId: string, itemId: string) {
   if (sheet.userOwned) {
-    persist({ ...state, userSheets: state.userSheets.map((value) => value.id !== sheet.id ? value : { ...value, sections: value.sections.map((section) => section.id !== sectionId ? section : { ...section, items: section.items.filter((item) => item.id !== itemId) }) }) });
+    persist({ ...state, userSheets: state.userSheets.map((value) => value.id !== sheet.id ? value : {
+      ...value,
+      sections: value.sections.map((section) => section.id !== sectionId ? section : {
+        ...section, items: section.items.filter((item) => item.id !== itemId)
+      })
+    }) });
     return;
   }
-  const overlays = (state.overlays[sheet.id] ?? []).map((section) => section.id !== sectionId ? section : { ...section, items: section.items.filter((item) => item.id !== itemId) }).filter((section) => section.items.length > 0);
+  const overlays = (state.overlays[sheet.id] ?? [])
+    .map((section) => section.id !== sectionId ? section : { ...section, items: section.items.filter((item) => item.id !== itemId) })
+    .filter((section) => section.items.length > 0);
   persist({ ...state, overlays: { ...state.overlays, [sheet.id]: overlays } });
 }
 
-function renderItem(sheet: CheatSheet, section: CheatSection, item: CheatItem) {
-  return `<article class="item" data-view="${escapeHtml(`${sheet.id}:${item.id}`)}"><div class="item-head"><strong>${escapeHtml(item.title)}</strong><span class="kind">${item.kind}</span></div>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}${item.shortcut ? `<button class="copy" data-copy="${escapeHtml(item.shortcut)}"><kbd>${escapeHtml(item.shortcut)}</kbd></button>` : ''}${item.command ? `<button class="copy command" data-copy="${escapeHtml(item.command)}"><code>${escapeHtml(item.command)}</code></button>` : ''}${item.body ? `<p>${escapeHtml(item.body)}</p>` : ''}${item.userOwned ? `<div class="user-actions"><button data-edit="${escapeHtml(section.id)}:${escapeHtml(item.id)}">Edit</button><button class="danger" data-delete="${escapeHtml(section.id)}:${escapeHtml(item.id)}">Delete</button></div>` : ''}</article>`;
+function itemValueMarkup(item: CheatItem): string {
+  const view = compactItemView(item, locale);
+  if (!view.value || !view.valueKind) return '';
+  const value = escapeHtml(view.value);
+  const content = view.valueKind === 'shortcut' ? `<kbd>${value}</kbd>` : `<code title="${value}">${value}</code>`;
+  return `<button class="item-value copy ${view.valueKind}" data-copy="${value}" title="Copy ${value}" aria-label="Copy ${value}">${content}</button>`;
 }
 
-function render() {
-  const sheets = allSheets(); const sheet = selected();
-  if (!sheet) { root.innerHTML = '<main class="empty">No valid Cheat Sheets found.</main>'; return; }
-  const visibleNav = Array.from(new Set([selectedId, ...state.pinned])).map((id) => sheets.find((value) => value.id === id)).filter((value): value is CheatSheet => Boolean(value)).slice(0, 6);
-  const hits = query ? searchSheets(sheets, query) : [];
-  root.innerHTML = `<main><header><div class="nav">${visibleNav.map((s) => `<button class="sheet-tab ${s.id === sheet.id ? 'active' : ''}" data-sheet="${s.id}">${escapeHtml(s.title)}</button>`).join('')}<select id="all-sheets"><option value="">All Sheets…</option>${sheets.map((s) => `<option value="${s.id}">${escapeHtml(s.title)}</option>`).join('')}</select></div><div class="toolbar"><input id="search" type="search" placeholder="Search all Cheat Sheets" value="${escapeHtml(query)}"><button id="pin">${state.pinned.includes(sheet.id) ? 'Unpin' : 'Pin'}</button><button id="add">＋ Item</button><button id="create">＋ Sheet</button></div></header><section class="content">${query ? `<div class="search-label">${hits.length} results across all sheets</div>${hits.map((hit) => `<div class="search-context">${escapeHtml(hit.sheetTitle)} › ${escapeHtml(hit.sectionTitle)}</div>${renderItem(sheets.find((s) => s.id === hit.sheetId)!, { id: hit.sectionId, title: hit.sectionTitle, items: [] }, hit.item)}`).join('') || '<p class="muted">No matches.</p>'}` : `${(state.recent[sheet.id]?.length ?? 0) ? `<details open><summary>Recently viewed</summary>${state.recent[sheet.id]!.map((id) => sheet.sections.flatMap((section) => section.items).find((item) => item.id === id)).filter((item): item is CheatItem => Boolean(item)).map((item) => `<div class="recent">${escapeHtml(item.title)}</div>`).join('')}</details>` : ''}${sheet.sections.map((section) => `<details ${state.expanded[sheet.id]?.includes(section.id) ? 'open' : ''} data-section="${section.id}"><summary>${escapeHtml(section.title)} <span>${section.items.length}</span></summary>${section.items.map((item) => renderItem(sheet, section, item)).join('') || '<p class="muted">No items yet.</p>'}</details>`).join('')}`}</section></main>`;
-  root.querySelectorAll<HTMLButtonElement>('[data-sheet]').forEach((button) => button.onclick = () => { selectedId = button.dataset.sheet!; manualSelection = true; query = ''; render(); });
-  root.querySelector<HTMLSelectElement>('#all-sheets')!.onchange = (event) => { const id = (event.currentTarget as HTMLSelectElement).value; if (id) { selectedId = id; manualSelection = true; query = ''; render(); } };
-  root.querySelector<HTMLInputElement>('#search')!.oninput = (event) => { query = (event.currentTarget as HTMLInputElement).value; render(); queueMicrotask(() => { const input = root.querySelector<HTMLInputElement>('#search'); input?.focus(); input?.setSelectionRange(query.length, query.length); }); };
+function renderItem(sheet: CheatSheet, section: CheatSection, item: CheatItem, context?: string) {
+  const view = compactItemView(item, locale);
+  const editRef = `${sheet.id}:${section.id}:${item.id}`;
+  return `<div class="item-cell">${context ? `<div class="search-context">${escapeHtml(context)}</div>` : ''}<article id="item-${escapeHtml(sheet.id)}-${escapeHtml(item.id)}" class="item" tabindex="0" data-view="${escapeHtml(`${sheet.id}:${item.id}`)}"><span class="item-label">${escapeHtml(view.label)}</span>${itemValueMarkup(item)}${item.userOwned ? `<span class="user-actions"><button data-edit="${escapeHtml(editRef)}">Edit</button><button class="danger" data-delete="${escapeHtml(editRef)}">Delete</button></span>` : ''}</article></div>`;
+}
+
+function renderRecent(sheet: CheatSheet): string {
+  const views = recentItemViews(sheet, state.recent[sheet.id] ?? [], locale);
+  if (!views.length) return '';
+  return `<details open class="recent-section"><summary>${text.recent}</summary><div class="item-grid recent-grid">${views.map(({ section, item, view }) => {
+    const value = view.value ? `<span class="recent-value ${view.valueKind ?? ''}" title="${escapeHtml(view.value)}">${view.valueKind === 'command' ? `<code>${escapeHtml(view.value)}</code>` : `<kbd>${escapeHtml(view.value)}</kbd>`}</span>` : '';
+    return `<button class="recent-item" data-jump="${escapeHtml(`${section.id}:${item.id}`)}"><span>${escapeHtml(view.label)}</span>${value}</button>`;
+  }).join('')}</div></details>`;
+}
+
+function render(options: { focusSearch?: boolean } = {}) {
+  const sheets = allSheets();
+  const sheet = selected();
+  if (!sheet) {
+    root.innerHTML = '<main class="empty">No valid Cheat Sheets found.</main>';
+    return;
+  }
+
+  const visibleNav = Array.from(new Set([selectedId, ...state.pinned]))
+    .map((id) => sheets.find((value) => value.id === id))
+    .filter((value): value is CheatSheet => Boolean(value))
+    .slice(0, 6);
+  const hits = query ? searchSheets(sheets, query, locale) : [];
+  const content = query
+    ? `<div class="search-label">${hits.length} ${text.resultSuffix}</div><div class="item-grid search-grid">${hits.map((hit) => {
+        const hitSheet = sheets.find((candidate) => candidate.id === hit.sheetId)!;
+        const context = `${hit.sheetTitle} › ${hit.sectionTitle}`;
+        return renderItem(hitSheet, { id: hit.sectionId, title: hit.sectionTitle, items: [] }, hit.item, context);
+      }).join('')}</div>${hits.length ? '' : `<p class="muted">${text.noMatches}</p>`}`
+    : `${renderRecent(sheet)}${sheet.sections.map((section) => `<details ${state.expanded[sheet.id]?.includes(section.id) ? 'open' : ''} data-section="${escapeHtml(section.id)}"><summary>${escapeHtml(section.title)} <span>${section.items.length}</span></summary><div class="item-grid">${section.items.map((item) => renderItem(sheet, section, item)).join('') || `<p class="muted">${text.noItems}</p>`}</div></details>`).join('')}`;
+
+  root.innerHTML = `<main><header><div class="nav">${visibleNav.map((candidate) => `<button class="sheet-tab ${candidate.id === sheet.id ? 'active' : ''}" data-sheet="${escapeHtml(candidate.id)}">${escapeHtml(sheetLabel(candidate, locale))}</button>`).join('')}<select id="all-sheets" aria-label="${escapeHtml(text.allSheets)}"><option value="">${text.allSheets}</option>${sheets.map((candidate) => `<option value="${escapeHtml(candidate.id)}">${escapeHtml(sheetLabel(candidate, locale))}</option>`).join('')}</select></div><div class="toolbar"><input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(text.search)}" value="${escapeHtml(query)}"><div class="toolbar-actions"><button id="pin">${state.pinned.includes(sheet.id) ? text.unpin : text.pin}</button><button id="add">${text.addItem}</button><button id="create">${text.addSheet}</button></div></div></header><section class="content">${content}</section></main>`;
+
+  root.querySelectorAll<HTMLButtonElement>('[data-sheet]').forEach((button) => button.onclick = () => {
+    selectedId = button.dataset.sheet!;
+    query = '';
+    render();
+  });
+
+  root.querySelector<HTMLSelectElement>('#all-sheets')!.onchange = (event) => {
+    const id = (event.currentTarget as HTMLSelectElement).value;
+    if (id) { selectedId = id; query = ''; render(); }
+  };
+
+  const search = root.querySelector<HTMLInputElement>('#search')!;
+  search.addEventListener('compositionstart', () => imeSearch.compositionStart());
+  search.addEventListener('compositionend', (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const deferred = imeSearch.compositionEnd(input.value);
+    window.setTimeout(() => {
+      if (imeSearch.canCommitDeferred(deferred) && query !== deferred.value) {
+        query = deferred.value;
+        render({ focusSearch: true });
+      }
+    }, 0);
+  });
+  search.addEventListener('input', (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const next = imeSearch.input(input.value, (event as InputEvent).isComposing);
+    if (next === null || next === query) return;
+    query = next;
+    render({ focusSearch: true });
+  });
+
   root.querySelector<HTMLButtonElement>('#pin')!.onclick = () => persist(togglePin(state, sheet.id));
   root.querySelector<HTMLButtonElement>('#add')!.onclick = () => openEditor(sheet);
   root.querySelector<HTMLButtonElement>('#create')!.onclick = createSheet;
-  root.querySelectorAll<HTMLDetailsElement>('details[data-section]').forEach((details) => details.ontoggle = () => { const current = new Set(state.expanded[sheet.id] ?? []); details.open ? current.add(details.dataset.section!) : current.delete(details.dataset.section!); state = { ...state, expanded: { ...state.expanded, [sheet.id]: [...current] } }; saveState(localStorage, state); });
-  root.querySelectorAll<HTMLElement>('[data-view]').forEach((element) => element.onclick = () => { const [, itemId] = element.dataset.view!.split(':'); if (itemId) { state = recordRecent(state, sheet.id, itemId); saveState(localStorage, state); } });
-  root.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => button.onclick = (event) => { event.stopPropagation(); void navigator.clipboard.writeText(button.dataset.copy!); });
-  root.querySelectorAll<HTMLButtonElement>('[data-edit]').forEach((button) => button.onclick = (event) => { event.stopPropagation(); const [sectionId, itemId] = button.dataset.edit!.split(':'); const item = sheet.sections.find((section) => section.id === sectionId)?.items.find((value) => value.id === itemId); if (!sectionId || !itemId || !item) return; const title = prompt('Item title', item.title); if (title?.trim()) updateUserItem(sheet, sectionId, itemId, (value) => ({ ...value, title: title.trim() })); });
-  root.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((button) => button.onclick = (event) => { event.stopPropagation(); const [sectionId, itemId] = button.dataset.delete!.split(':'); if (sectionId && itemId && confirm('Delete this personal item?')) removeUserItem(sheet, sectionId, itemId); });
+
+  root.querySelectorAll<HTMLDetailsElement>('details[data-section]').forEach((details) => details.ontoggle = () => {
+    const current = new Set(state.expanded[sheet.id] ?? []);
+    details.open ? current.add(details.dataset.section!) : current.delete(details.dataset.section!);
+    state = { ...state, expanded: { ...state.expanded, [sheet.id]: [...current] } };
+    saveState(localStorage, state);
+  });
+
+  const viewItem = (element: HTMLElement) => {
+    const [sheetId, itemId] = element.dataset.view?.split(':') ?? [];
+    if (!sheetId || !itemId) return;
+    state = recordRecent(state, sheetId, itemId);
+    saveState(localStorage, state);
+  };
+  root.querySelectorAll<HTMLElement>('[data-view]').forEach((element) => {
+    element.onclick = () => viewItem(element);
+    element.onkeydown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        viewItem(element);
+      }
+    };
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => button.onclick = (event) => {
+    event.stopPropagation();
+    const item = button.closest<HTMLElement>('[data-view]');
+    if (item) viewItem(item);
+    void navigator.clipboard.writeText(button.dataset.copy!);
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-jump]').forEach((button) => button.onclick = () => {
+    const [sectionId, itemId] = button.dataset.jump!.split(':');
+    if (!sectionId || !itemId) return;
+    const expanded = new Set(state.expanded[sheet.id] ?? []);
+    expanded.add(sectionId);
+    state = { ...state, expanded: { ...state.expanded, [sheet.id]: [...expanded] } };
+    saveState(localStorage, state);
+    render();
+    const target = document.getElementById(`item-${sheet.id}-${itemId}`);
+    target?.scrollIntoView({ block: 'nearest' });
+    target?.focus({ preventScroll: true });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-edit]').forEach((button) => button.onclick = (event) => {
+    event.stopPropagation();
+    const [sheetId, sectionId, itemId] = button.dataset.edit!.split(':');
+    const targetSheet = sheets.find((candidate) => candidate.id === sheetId);
+    const item = targetSheet?.sections.find((section) => section.id === sectionId)?.items.find((value) => value.id === itemId);
+    if (!targetSheet || !sectionId || !itemId || !item) return;
+    const title = prompt('Item title', item.title);
+    if (title?.trim()) updateUserItem(targetSheet, sectionId, itemId, (value) => ({ ...value, title: title.trim() }));
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((button) => button.onclick = (event) => {
+    event.stopPropagation();
+    const [sheetId, sectionId, itemId] = button.dataset.delete!.split(':');
+    const targetSheet = sheets.find((candidate) => candidate.id === sheetId);
+    if (targetSheet && sectionId && itemId && confirm('Delete this personal item?')) removeUserItem(targetSheet, sectionId, itemId);
+  });
+
+  if (options.focusSearch) {
+    const input = root.querySelector<HTMLInputElement>('#search');
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  }
 }
 
 render();
 void listen<ForegroundApplication>('foreground-app', ({ payload }) => {
-  manualSelection = false;
   query = '';
   selectedId = sheetForApplication(payload.bundleId, allSheets()) ?? (builtins.find((sheet) => sheet.id === 'my-work')?.id ?? selectedId);
   render();

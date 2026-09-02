@@ -1,6 +1,7 @@
 ---
 id: git
 title: Git
+title-ja: Git
 description: Verified Git command starters.
 aliases: version control
 applications:
@@ -11,6 +12,7 @@ related: terminal
 
 ### Status
 - id: status
+- title-ja: 変更状態を見る
 - kind: command
 - command: git status
 - aliases: changes, state, 状態

@@ -17,8 +17,11 @@
       "height": 560,
       "resizable": false,
       "visible": false,
-      "decorations": false,
+      "decorations": true,
+      "titleBarStyle": "Transparent",
+      "hiddenTitle": true,
       "transparent": false,
+      "shadow": true,
       "alwaysOnTop": true,
       "skipTaskbar": true,
       "focus": true

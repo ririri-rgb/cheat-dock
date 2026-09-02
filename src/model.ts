@@ -1,8 +1,11 @@
 export type CheatKind = 'shortcut' | 'command' | 'operation' | 'procedure' | 'snippet';
+export type SupportedLocale = 'en' | 'ja';
+export type LocalizedTitles = Partial<Record<Exclude<SupportedLocale, 'en'>, string>>;
 
 export interface CheatItem {
   id: string;
   title: string;
+  localizedTitles?: LocalizedTitles;
   kind: CheatKind;
   description?: string;
   shortcut?: string;
@@ -24,6 +27,7 @@ export interface CheatSection {
 export interface CheatSheet {
   id: string;
   title: string;
+  localizedTitles?: LocalizedTitles;
   description?: string;
   aliases: string[];
   applications: string[];

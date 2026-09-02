@@ -2,6 +2,7 @@ import type { CheatItem, CheatKind, CheatSection, CheatSheet } from './model.ts'
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const KINDS = new Set<CheatKind>(['shortcut', 'command', 'operation', 'procedure', 'snippet']);
+const FRONTMATTER_FIELDS = new Set(['id', 'title', 'title-ja', 'description', 'aliases', 'applications', 'related']);
 
 function parseList(value: string | undefined): string[] {
   if (!value) return [];
@@ -17,7 +18,10 @@ function parseFrontmatter(markdown: string): { meta: Record<string, string>; bod
     if (!line.trim()) continue;
     const colon = line.indexOf(':');
     if (colon < 1) throw new Error(`invalid frontmatter line: ${line}`);
-    meta[line.slice(0, colon).trim()] = line.slice(colon + 1).trim();
+    const key = line.slice(0, colon).trim();
+    if (!FRONTMATTER_FIELDS.has(key)) throw new Error(`unknown frontmatter field: ${key}`);
+    if (key in meta) throw new Error(`duplicate frontmatter field: ${key}`);
+    meta[key] = line.slice(colon + 1).trim();
   }
   return { meta, body: markdown.slice(end + 5) };
 }
@@ -34,6 +38,7 @@ export function parseCheatSheet(markdown: string): CheatSheet {
   if (!title) throw new Error('missing sheet title');
 
   const sections: CheatSection[] = [];
+  const itemIds = new Set<string>();
   let section: CheatSection | undefined;
   let item: CheatItem | undefined;
   let bodyLines: string[] = [];
@@ -42,7 +47,8 @@ export function parseCheatSheet(markdown: string): CheatSheet {
     if (!item || !section) return;
     const text = bodyLines.join('\n').trim();
     if (text) item.body = text;
-    if (section.items.some((existing) => existing.id === item!.id)) throw new Error(`duplicate item id: ${item.id}`);
+    if (itemIds.has(item.id)) throw new Error(`duplicate item id: ${item.id}`);
+    itemIds.add(item.id);
     section.items.push(item);
     item = undefined;
     bodyLines = [];
@@ -69,7 +75,7 @@ export function parseCheatSheet(markdown: string): CheatSheet {
       if (line.trim()) throw new Error(`content outside item: ${line}`);
       continue;
     }
-    const field = line.match(/^- ([a-z]+):\s*(.*)$/);
+    const field = line.match(/^- ([a-z][a-z-]*):\s*(.*)$/);
     if (field) {
       const key = field[1];
       const value = field[2]?.trim() ?? '';
@@ -79,6 +85,8 @@ export function parseCheatSheet(markdown: string): CheatSheet {
       } else if (key === 'kind') {
         if (!KINDS.has(value as CheatKind)) throw new Error(`invalid item kind: ${value}`);
         item.kind = value as CheatKind;
+      } else if (key === 'title-ja') {
+        if (value) item.localizedTitles = { ...item.localizedTitles, ja: value };
       } else if (key === 'description' || key === 'shortcut' || key === 'command' || key === 'source') {
         item[key] = value;
       } else if (key === 'aliases' || key === 'tags') {
@@ -96,6 +104,7 @@ export function parseCheatSheet(markdown: string): CheatSheet {
   return {
     id,
     title,
+    localizedTitles: meta['title-ja'] ? { ja: meta['title-ja'] } : undefined,
     description: meta.description,
     aliases: parseList(meta.aliases),
     applications: parseList(meta.applications),

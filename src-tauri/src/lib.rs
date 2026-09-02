@@ -1,6 +1,6 @@
 use serde::Serialize;
-use tauri::{Emitter, Manager, PhysicalPosition, Position, WebviewWindow};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{Emitter, Manager, PhysicalPosition, Position, WebviewWindow};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +24,24 @@ fn foreground_application() -> ForegroundApplication {
     ForegroundApplication { bundle_id: None, name: None }
 }
 
+#[cfg(target_os = "macos")]
+fn configure_macos_panel(window: &WebviewWindow) {
+    use objc2_app_kit::{NSWindow, NSWindowButton};
+
+    if let Ok(ns_window_ptr) = window.ns_window() {
+        let ns_window = unsafe { &*(ns_window_ptr as *mut NSWindow) };
+        for button_type in [
+            NSWindowButton::CloseButton,
+            NSWindowButton::MiniaturizeButton,
+            NSWindowButton::ZoomButton,
+        ] {
+            if let Some(button) = ns_window.standardWindowButton(button_type) {
+                button.setHidden(true);
+            }
+        }
+    }
+}
+
 fn toggle_window(window: &WebviewWindow, tray_position: PhysicalPosition<f64>) {
     if window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false) {
         let _ = window.hide();
@@ -45,12 +63,30 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                configure_macos_panel(&window);
+
+                let hide = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        let _ = hide.hide();
+                    }
+                });
+            }
+
             let handle = app.handle().clone();
             TrayIconBuilder::new()
                 .tooltip("Cheat Dock")
                 .icon(app.default_window_icon().cloned().expect("app icon missing"))
                 .on_tray_icon_event(move |_tray, event| {
-                    if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, position, .. } = event {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        position,
+                        ..
+                    } = event
+                    {
                         let foreground = foreground_application();
                         let _ = handle.emit_to("main", "foreground-app", &foreground);
                         if let Some(window) = handle.get_webview_window("main") {
@@ -60,14 +96,6 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            if let Some(window) = app.get_webview_window("main") {
-                let hide = window.clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::Focused(false) = event {
-                        let _ = hide.hide();
-                    }
-                });
-            }
             Ok(())
         })
         .run(tauri::generate_context!())
