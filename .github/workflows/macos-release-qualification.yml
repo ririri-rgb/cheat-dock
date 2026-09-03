@@ -81,12 +81,6 @@ jobs:
     environment: macos-release
     env:
       CI: true
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-      APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -97,6 +91,13 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - name: Require release credentials
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
         run: |
           test -n "$APPLE_CERTIFICATE"
           test -n "$APPLE_CERTIFICATE_PASSWORD"
@@ -105,6 +106,9 @@ jobs:
           test -n "$APPLE_API_KEY"
           test -n "$APPLE_API_KEY_P8_BASE64"
       - name: Materialize App Store Connect API key
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
         run: |
           KEY_PATH="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
           printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$KEY_PATH"
@@ -113,6 +117,12 @@ jobs:
       - run: npm ci
       - run: npm run release:check
       - name: Build, Developer ID sign, notarize, and staple
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: npm run tauri build -- --target universal-apple-darwin --bundles app,dmg
       - name: Locate signed bundles
         run: |
