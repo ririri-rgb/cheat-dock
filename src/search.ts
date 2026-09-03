@@ -23,12 +23,12 @@ function localizedTitleValues(value: LocalizedTitles | undefined): string[] {
 }
 
 function isLatinAlphanumericToken(token: string): boolean {
-  return /^[a-z0-9]+$/u.test(token);
+  return /^[\p{Script=Latin}\p{N}]+$/u.test(token);
 }
 
 export function isShortLatinToken(token: string): boolean {
   const value = normalize(token);
-  return value.length > 0 && value.length <= 2 && isLatinAlphanumericToken(value);
+  return Array.from(value).length > 0 && Array.from(value).length <= 2 && isLatinAlphanumericToken(value);
 }
 
 function weakWords(value: string): string[] {
