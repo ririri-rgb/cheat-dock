@@ -8,7 +8,7 @@ The panel keeps native decorations/shadow with Tauri's public `Overlay` title-ba
 
 ## Built-in vs user-authored content
 
-Built-ins remain repository-managed Markdown compiled into the app and are read-only from GUI CRUD. User-authored knowledge is now a separate file-backed source of truth under Tauri's OS-standard `app_data_dir`:
+Built-ins remain repository-managed Markdown compiled into the app and are read-only from GUI CRUD. User-authored knowledge is a separate file-backed source of truth under Tauri's OS-standard `app_data_dir`:
 
 ```text
 user-data/
@@ -22,11 +22,28 @@ Custom Sheet filenames use stable IDs, never titles, so rename does not move/cre
 
 Pins, Recently viewed, expanded sections, and similar UI state remain in validated WebView localStorage because they are not authored knowledge. After migration, `userSheets` and `overlays` are deliberately removed from the active localStorage state; files are authoritative.
 
+## Item semantics: `kind` is authoritative
+
+The existing `kind` field is the single item type system. PR #6 does not add a second `type` field. Supported schema kinds remain `shortcut`, `command`, `operation`, `procedure`, and `snippet`.
+
+For the compact GUI editor, creation/editing currently focuses on `shortcut` and `command`:
+
+- `kind: shortcut` means a keyboard chord the user presses. Its primary field is `shortcut`.
+- `kind: command` means literal textual command input. Its primary field is `command`.
+
+Presentation resolves the primary value from `kind`, not from whichever field happens to exist first. A mixed historical item with both fields therefore displays the field selected by its valid `kind`. A malformed historical item whose primary field is missing uses a pure compatibility fallback to the other available field so one bad item does not break the app.
+
+New GUI saves enforce one primary field: Shortcut saves remove `command`; Command saves remove `shortcut`. The editor keeps hidden values in memory while switching Type and shows a compact warning whenever Save would remove an inactive value. Loading/reloading legacy mixed Markdown never performs that cleanup automatically.
+
+Existing `operation` / `procedure` / `snippet` Markdown remains valid. Their GUI editing is intentionally not expanded in this PR; direct Markdown editing remains available.
+
 ## Markdown schema and loading
 
 User files reuse the existing constrained frontmatter/H2/H3 parser. Unknown/malformed fields, duplicate IDs, unsafe identities, invalid UTF-8, and duplicate Sheet titles are isolated rather than trusted. One corrupt file produces a compact issue while valid user files and built-ins continue loading.
 
-The serializer distinguishes structural labels from authored payload. Human labels may normalize repeated whitespace, while `command`, `shortcut`, `description`, and `source` retain meaningful internal spacing. Shortcut glyph formatting is presentation-only and never persisted to Markdown.
+The serializer distinguishes structural labels from authored payload. Human labels may normalize repeated whitespace, while `command`, `shortcut`, `description`, and `source` retain meaningful internal spacing. A legacy mixed item serializes both fields if both still exist in state; merely loading a file does not trigger serialization or rewrite.
+
+Shortcut glyph formatting is presentation-only and never persisted to Markdown. Command values do not use keyboard formatting at all.
 
 ## Native filesystem boundary
 
@@ -84,23 +101,27 @@ Legacy PR #1 content migrates once, conservatively:
 
 The marker is never written before file verification. Failed/interrupted migration keeps legacy authored data, remains retryable, and reuses matching partial files rather than creating duplicates. Existing non-matching files are never overwritten by migration.
 
-## Shortcut parsing, recording and presentation
+## Shortcut parsing, recording and Command literal safety
 
-Keyboard shortcut logic is centralized in a pure module. Canonical storage uses author-friendly text such as `Command + Shift + P`. Presentation maps known keys/modifiers to macOS glyphs. Actual Record capture maps `Meta → Command`, `Control → Control`, `Alt → Option`, `Shift → Shift`; modifier-only events remain pending, Escape cancels, composition/repeat events are ignored, and the final non-modifier key commits one chord.
+Keyboard shortcut logic is centralized in a pure module. Canonical Record storage uses author-friendly text such as `Command + Shift + P`. Presentation maps known shortcut keys/modifiers to macOS glyphs. Actual Record capture maps `Meta → Command`, `Control → Control`, `Alt → Option`, `Shift → Shift`; modifier-only events remain pending, Escape cancels, composition/repeat events are ignored, and the final non-modifier key commits one chord.
 
 Capture is attached only to the explicit Record control in the item dialog, never document-wide, so Search's Japanese IME controller remains independent.
 
-A separate explicit-chord grammar formats keyboard instructions embedded in displayed command/procedure text. It requires modifier-plus-key syntax, so `Command + K` can render `⌘ K`, while `command -v node`, `run command`, `Git command`, and `Command failed` remain unchanged. Raw copy/storage values are never mutated.
+Only Shortcut presentation uses `formatMacShortcut`. Command presentation is literal: `git status`, `command -v node`, `Press Command + K`, `Command failed`, and repeated internal spaces are displayed/copied exactly as stored. Command data is never passed through the explicit keyboard-chord formatter.
+
+The pure `formatExplicitKeyboardChords()` helper may remain available for future procedure/operation presentation where explicit keyboard instructions are semantically appropriate, but it is not part of Command rendering.
 
 Multi-chord sequences such as `Command + K`, then `Command + S` are intentionally future work.
 
-## Search, locale and compact UI
+## Search, Recently viewed, locale and compact UI
 
-Search remains deterministic/local with NFKC/case/whitespace normalization, aliases/tags and stable scoring. Results are presented as Current Sheet then Other Sheets without dropping hits. IME composition does not cause root re-render until composition commits.
+Search remains deterministic/local with NFKC/case/whitespace normalization, aliases/tags and stable scoring. It indexes raw canonical shortcut and raw command data rather than glyph display text. Results are presented as Current Sheet then Other Sheets without dropping hits; each hit uses the same kind-aware primary-value presentation as the normal list.
 
-English is canonical; Japanese localization is explicit/selective through optional localized fields. Technical tool names/control labels remain English where appropriate. Missing translations fall back safely.
+Recently viewed also uses the same kind-aware presentation, so mixed historical items follow `kind` consistently there too.
 
-At default width short items target three columns; medium/narrow widths fall back to two/one, and long commands may span wide/full rows.
+IME composition does not cause root re-render until composition commits. English is canonical; Japanese localization is explicit/selective through optional localized fields. Technical tool names/control labels (`Type`, `Shortcut`, `Command`, `Record`) may remain English. Missing translations fall back safely.
+
+At default width short items target three columns; medium/narrow widths fall back to two/one, and long literal commands may span wide/full rows.
 
 ## Reproducibility, security and distribution
 

@@ -1,6 +1,6 @@
 # macOS manual qualification
 
-Record macOS version, architecture, commit SHA, and failures. Checked items in the first section are physical evidence already reported during PR #1. PR #6 changes remain unchecked until observed on a physical Mac.
+Record macOS version, architecture, commit SHA, and failures. Checked items reflect physical evidence reported by the project owner. The final Shortcut/Command semantic refinement must be rechecked at the new HEAD before merge.
 
 ## Previously qualified foundation (PR #1)
 
@@ -17,43 +17,37 @@ Record macOS version, architecture, commit SHA, and failures. Checked items in t
 - [x] Adding a personal item works and the in-app Delete confirmation opens.
 - [x] Custom Cheat Sheets can be created and persist.
 
-PR #6 must not regress these, especially Search IME composition.
-
 # PR #6 file-backed personal-data qualification
 
 ## 1. Migration and source of truth
 
-- [ ] Before updating, keep at least one existing My Work/custom personal item from PR #1.
-- [ ] Run the PR #6 branch with `npm run tauri dev`; the existing authored item still appears after first startup.
-- [ ] Close/reopen the popup and restart the app; migrated content still appears.
-- [ ] Add a new personal item, restart, and confirm it remains.
+- [x] Existing PR #1 My Work authored data migrated and remained visible.
+- [x] Migrated content remained after app restart.
+- [x] GUI-authored content persisted through the file-backed layer after restart.
 - [ ] Pin/Recently viewed/expanded state remains usable after migration (these remain UI state, not Markdown content).
 - [ ] No duplicate custom Sheet/item appears after several restarts.
 
 ## 2. User Markdown and Finder
 
-- [ ] Click **Open Data Folder**. Finder reveals Cheat Dock's OS app-data `user-data` directory.
-- [ ] Confirm the path contains `cheats/` and `overlays/`.
-- [ ] A custom Sheet is represented by `cheats/user-<stable-id>.md` rather than a title-based filename.
-- [ ] Rename the custom Sheet; its existing stable-ID filename remains the same and its `title:` updates.
-- [ ] Add a personal item to a built-in such as Git/Excel; bundled repository Markdown is untouched and `overlays/<built-in-id>.md` changes.
-- [ ] Edit/delete custom-Sheet and built-in-overlay items; Markdown reflects each operation after save/reload.
+- [x] **Open Data Folder** revealed Cheat Dock's user-data directory in Finder.
+- [x] The path contains `cheats/` and `overlays/`.
+- [x] GUI Add/Edit/Rename/Delete changes were reflected in Markdown.
+- [ ] Confirm a custom Sheet filename remains the same stable ID across Rename.
+- [ ] Confirm bundled repository Markdown remains untouched while built-in personal additions update `overlays/<built-in-id>.md`.
 - [ ] Delete a custom Sheet and confirm its target Markdown disappears while one `.bak` recovery file may remain.
 
 ## 3. Direct external editing and reload
 
-- [ ] Open one user Markdown file in VS Code/Vim, edit its human title or an item, save, then close/reopen the Cheat Dock popup; the edit appears.
-- [ ] Alternatively use **Reload Files** when shown; valid external edits appear.
+- [x] Direct Markdown editing was reflected after popup reopen/reload.
 - [ ] External formatting changes to an unrelated file are not rewritten merely because another Sheet is edited in the GUI.
 - [ ] A direct edit that creates a duplicate Sheet title is isolated/reported rather than shadowing a built-in.
 
 ## 4. Conflict protection
 
-- [ ] Open a user file externally but leave Cheat Dock's edit dialog based on the older version.
-- [ ] Save the external edit first, then press Save in Cheat Dock.
-- [ ] Cheat Dock reports a conflict and does **not** overwrite the external file.
-- [ ] Pressing Save again without Reload still does not overwrite it.
-- [ ] Reload/reopen, review the external content, then make a fresh GUI edit; save succeeds.
+- [x] Saving a GUI edit based on an older externally changed file reports a conflict.
+- [x] The external file is not overwritten.
+- [x] Pressing Save again without Reload still does not overwrite it.
+- [x] After Reload, a fresh GUI edit can be made against the new revision.
 
 ## 5. Corrupt-file recovery
 
@@ -65,48 +59,67 @@ PR #6 must not regress these, especially Search IME composition.
 
 ## 6. Shortcut Record
 
-- [ ] In Add/Edit Item, the Shortcut field still accepts normal typed text.
-- [ ] Click **Record**, press `⌘K`; field stores `Command + K`, preview/list displays `⌘ K`.
-- [ ] Press `⌘⇧P`; stored value is `Command + Shift + P`, UI displays `⌘ ⇧ P`.
-- [ ] Press `⌃⌥Space`; stored value is `Control + Option + Space`, UI displays `⌃ ⌥ Space`.
-- [ ] Press `⌥↑`; stored value is `Option + Up`, UI displays `⌥ ↑`.
-- [ ] Press only a modifier; capture remains pending rather than committing.
-- [ ] Press Escape while recording; capture cancels without changing the existing shortcut.
-- [ ] After a captured shortcut save, inspect the Markdown: it contains canonical words, not glyphs.
+- [x] `⌘K` captured as `Command + K` and displayed as `⌘ K`.
+- [x] `⌘⇧P` captured as `Command + Shift + P` and displayed as `⌘ ⇧ P`.
+- [x] `⌃⌥Space` captured as `Control + Option + Space` and displayed as `⌃ ⌥ Space`.
+- [ ] `⌥↑` captures as `Option + Up` and displays as `⌥ ↑`.
+- [ ] Modifier-only input remains pending.
+- [ ] Escape cancels without replacing the existing shortcut.
+- [x] Saved Record values use canonical words in Markdown and macOS glyphs only in presentation.
 - [ ] Restart and confirm the captured shortcut round-trips from Markdown.
 
 ## 7. Keyboard/IME isolation
 
-- [ ] Record mode only captures while the explicit Record control is active; normal app/search keyboard shortcuts work after capture ends.
-- [ ] Japanese Search IME still enters `コピー` normally.
-- [ ] `コミット 戻す` and `セル 書式` compose without duplicate/interleaved text.
+- [x] Japanese Search IME showed no regression during PR #6 qualification.
+- [ ] Record mode only captures while the explicit Record control is active; normal app/search keyboard behavior works after capture ends.
+- [ ] `コミット 戻す` and `セル 書式` compose without duplicate/interleaved text on the final semantic-refinement HEAD.
 - [ ] Search updates after composition commit and ordinary Latin search remains immediate.
 
-## 8. Explicit chord presentation safety
+## 8. Product decision: Shortcut and Command are separate semantics
 
-- [ ] Create a displayed value containing `Command + K`; UI presents `⌘ K` while Markdown remains `Command + K`.
-- [ ] `Press Command + Shift + P` presents `Press ⌘ ⇧ P`.
-- [ ] A command `command -v node` remains exactly `command -v node` in both UI raw copy and Markdown.
-- [ ] `run command`, `Git command`, and `Command failed` are not glyph-rewritten.
-- [ ] Copying a command copies its raw value, not presentation glyph substitutions.
+Physical qualification exposed an ambiguity: an item could contain both `shortcut` and `command`, while presentation preferred whichever field happened to be checked first. A test value `Press Command + K` also prompted reevaluation of whether Command should receive keyboard-glyph formatting.
 
-## 9. Command whitespace semantics
+This is resolved as a product semantic decision, not as a missing glyph-formatting bug:
 
-- [ ] Save an item whose command contains meaningful repeated spaces, for example `printf '%s  %s' "$A" "$B"`.
-- [ ] Inspect Markdown after GUI save: the two internal spaces are preserved.
-- [ ] Restart/reload and confirm the raw copied command still preserves those spaces.
+- **Shortcut** = keyboard chord; `kind: shortcut` is authoritative and only its `shortcut` primary value receives macOS glyph presentation.
+- **Command** = literal textual command; `kind: command` is authoritative and its `command` value is never keyboard-formatted.
+- `Press Command + K` in a `command:` field therefore remains exactly `Press Command + K`.
+- Existing mixed legacy items are preserved on load; editing them may explicitly normalize to the selected Type after a warning.
+
+Final physical checks for this refinement:
+
+- [ ] Add Item shows compact **Type** with Shortcut and Command choices.
+- [ ] Type = Shortcut shows Shortcut + Record and hides Command.
+- [ ] Type = Command shows Command and hides Shortcut/Record.
+- [ ] Switch Shortcut → Command → Shortcut before Save; the in-dialog old value is retained while switching.
+- [ ] If Save will remove an inactive value, the compact warning is visible.
+- [ ] New Shortcut Markdown contains `kind: shortcut` + `shortcut:` and no `command:`.
+- [ ] New Command Markdown contains `kind: command` + `command:` and no `shortcut:`.
+- [ ] A mixed legacy `kind: shortcut` item displays its Shortcut even when `command:` also exists.
+- [ ] A mixed legacy `kind: command` item displays its literal Command even when `shortcut:` also exists.
+- [ ] Merely reopening/reloading a mixed legacy file does not rewrite or delete its inactive field.
+
+## 9. Command literal safety
+
+- [x] `command -v node` remained exactly `command -v node` during physical qualification.
+- [ ] `git status` displays/copies exactly as stored.
+- [ ] `Press Command + K` in a Command item remains exactly `Press Command + K` (no `⌘` conversion).
+- [ ] `Command failed` remains exactly `Command failed`.
+- [ ] `printf '%s  %s' "$A" "$B"` preserves its repeated internal spaces in UI copy and Markdown after save/reload.
 
 ## 10. Existing menu-bar UX regression
 
-- [ ] Rounded panel/shadow/titlebar spacing remain acceptable.
+- [ ] Rounded panel/shadow/titlebar spacing remain acceptable on the final semantic-refinement HEAD.
 - [ ] Foreground detection and manual Sheet navigation still work.
 - [ ] Three/two/one-column adaptive layout still behaves as before.
-- [ ] Recently viewed, pinning, grouped Current/Other search, selective localization, and shortcut glyphs remain intact.
+- [ ] Recently viewed shows Shortcut glyphs for Shortcut items and literal commands for Command items.
+- [ ] Search results use the same kind-aware presentation while still matching raw shortcut/command text.
+- [ ] Pinning, grouped Current/Other search, and selective localization remain intact.
 - [ ] No Accessibility permission appears and no network connection is required for core use.
 
 ## Qualification record
 
-When complete, record:
+For the final semantic-refinement pass, record:
 
 ```text
 macOS:

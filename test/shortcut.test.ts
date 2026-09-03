@@ -48,7 +48,7 @@ test('capture mode ignores modifier-only/composition and Escape cancels', () => 
   assert.deepEqual(captureKeyboardEvent(key('k', { metaKey: true, isComposing: true })), { status: 'ignore' });
 });
 
-test('explicit chord formatter transforms only keyboard grammar, never shell/English command words', () => {
+test('future procedure chord utility remains grammar-based and separate from Command rendering', () => {
   assert.equal(formatExplicitKeyboardChords('Press Command + K to continue'), 'Press ⌘ K to continue');
   assert.equal(formatExplicitKeyboardChords('Control + Option + Space opens it'), '⌃ ⌥ Space opens it');
   assert.equal(formatExplicitKeyboardChords('command -v node'), 'command -v node');

@@ -24,6 +24,30 @@ Use **Open Data Folder** in the popup. On macOS this uses the public AppKit `NSW
 
 Pins, Recently viewed, expanded sections, and other UI state remain validated localStorage rather than being mixed into authored Markdown.
 
+## Shortcut and Command files
+
+Item `kind` is authoritative. GUI-created Shortcut and Command items use one primary field:
+
+```md
+### Open Palette
+- id: user-palette
+- kind: shortcut
+- shortcut: Command + Shift + P
+```
+
+```md
+### Status
+- id: user-status
+- kind: command
+- command: git status
+```
+
+Shortcut values are stored as editable canonical text and rendered with macOS glyphs in the UI. Command values are literal: `command -v node`, `Press Command + K`, `Command failed`, and meaningful repeated spaces are not keyboard-formatted or otherwise rewritten for display/copy.
+
+Historical files may contain both `shortcut` and `command`. Opening/reloading such a file preserves both raw fields and does not rewrite it. The valid `kind` selects primary presentation. When that mixed item is explicitly saved through the Shortcut/Command GUI editor, a compact warning explains that the inactive value will be removed so the item returns to the one-primary-field invariant.
+
+`operation`, `procedure`, and `snippet` remain valid Markdown kinds. Their authoring continues through direct Markdown in PR #6 rather than a larger GUI editor expansion.
+
 ## Direct editing
 
 You can edit user Markdown in VS Code, Vim, or another text editor. Save the file, then close/reopen the Cheat Dock popup or use **Reload Files** when shown. PR #6 deliberately avoids a real-time file watcher to keep race/battery behavior simple.

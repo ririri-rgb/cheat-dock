@@ -34,9 +34,76 @@ Sections are `##` headings. Items are `###` headings. A section may optionally p
 Production deploy command.
 ```
 
-Supported item fields are `id`, `title-ja`, `kind`, `description`, `shortcut`, `command`, `aliases`, `tags`, and `source`. Supported kinds are `shortcut`, `command`, `operation`, `procedure`, and `snippet`.
+Supported item fields are `id`, `title-ja`, `kind`, `description`, `shortcut`, `command`, `aliases`, `tags`, and `source`. Supported kinds remain `shortcut`, `command`, `operation`, `procedure`, and `snippet`. `kind` is authoritative; there is no separate persisted `type` field.
 
 Unknown fields, duplicate item IDs, malformed frontmatter, and items outside a section are rejected. A bad user file is isolated rather than disabling built-ins or other valid files.
+
+## Shortcut vs Command
+
+These are deliberately different semantics.
+
+### Shortcut
+
+A Shortcut is a keyboard chord the user presses:
+
+```md
+### Open Command Palette
+- id: user-open-palette
+- kind: shortcut
+- shortcut: Command + Shift + P
+```
+
+The canonical Markdown is human-readable and the macOS UI presents it as `⌘ ⇧ P`. Only Shortcut presentation uses the macOS shortcut formatter. The GUI Record control is available only for `kind: shortcut`.
+
+### Command
+
+A Command is literal textual command input:
+
+```md
+### Show repository status
+- id: user-status
+- kind: command
+- command: git status
+```
+
+Other valid examples include:
+
+```text
+docker compose up
+brew update
+ssh user@example.com
+command -v node
+Press Command + K
+Command failed
+```
+
+Command content is literal. Cheat Dock does **not** interpret the English word `Command` as a keyboard modifier when it appears in a `command:` field. It is displayed and copied exactly as stored and is never passed through the macOS shortcut formatter.
+
+## GUI item invariants and legacy compatibility
+
+The compact GUI editor currently focuses on Shortcut and Command creation/editing and labels the existing `kind` choice as **Type**.
+
+New GUI saves use one primary value:
+
+```md
+- kind: shortcut
+- shortcut: Command + K
+```
+
+or:
+
+```md
+- kind: command
+- command: git status
+```
+
+They do not create a new item with both `shortcut` and `command`.
+
+Historical localStorage/Markdown may already contain both fields. Such mixed items remain valid compatibility input. Loading/reloading them does not remove either field or rewrite the file. Their valid `kind` decides which field is primary for presentation. If a user edits a mixed Shortcut/Command item, the dialog shows the current `kind` as Type and warns that saving the selected Type will remove the inactive value.
+
+Malformed historical items whose valid `kind` is missing its matching field use a compatibility fallback to the other available value so the app remains usable. New GUI saves return to the valid one-primary-field invariant.
+
+`operation`, `procedure`, and `snippet` remain supported in Markdown. PR #6 does not expand their GUI editor surface; direct file editing is the supported path for those kinds.
 
 ## Payload whitespace
 
@@ -46,9 +113,9 @@ Human-facing structural labels may be normalized for stable Markdown output. Aut
 - command: printf '%s  %s' "$A" "$B"
 ```
 
-must remain two spaces after GUI save/reload. Cheat Dock never rewrites a CLI command into display glyphs.
+must remain two spaces after GUI save/reload. Command presentation is literal and cannot convert those bytes into shortcut glyphs.
 
-## Shortcuts
+## Shortcut Record
 
 Canonical stored shortcuts are author-friendly text:
 
@@ -58,24 +125,13 @@ Canonical stored shortcuts are author-friendly text:
 - shortcut: Control + Option + Space
 ```
 
-The macOS UI renders these as `⌘ K`, `⌘ ⇧ P`, and `⌃ ⌥ Space`. Authors may continue typing raw shortcut text directly. GUI item dialogs also have **Record**: click Record, press one chord, and Cheat Dock fills the canonical raw value. Meta maps to Command, Control remains Control, Alt maps to Option, and Shift remains Shift.
+The macOS UI renders these as `⌘ K`, `⌘ ⇧ P`, and `⌃ ⌥ Space`. Authors may continue typing shortcut text directly. GUI item dialogs also have **Record** for Shortcut Type: click Record, press one chord, and Cheat Dock fills the canonical raw value. Meta maps to Command, Control remains Control, Alt maps to Option, and Shift remains Shift.
 
 Modifier-only input does not commit; Escape cancels; IME composition is ignored by the Record handler. Record currently supports one chord. Multi-chord sequences are a future extension and are not encoded into a new schema in PR #6.
 
 Already-symbolized input remains accepted for compatibility, but canonical human-readable names are preferred in editable Markdown.
 
-## Keyboard chords inside display text
-
-Presentation may convert an explicit chord inside a displayed command/procedure value, for example `Press Command + Shift + P` → `Press ⌘ ⇧ P`. This is grammar-based and presentation-only. Ordinary words and shell commands are not substitutions:
-
-```text
-command -v node   # unchanged
-run command       # unchanged
-Git command       # unchanged
-Command failed    # unchanged
-```
-
-Copy and file persistence always use the raw value.
+A pure explicit-keyboard-chord formatter remains available internally for potential future operation/procedure presentation. It is intentionally **not** used for `command:` values.
 
 ## Built-in overlays
 
@@ -91,7 +147,7 @@ Localization is explicit and selective:
 - localized field absent → show canonical English;
 - no automatic Katakana transliteration;
 - keep app/tool names such as `Excel`, `Git`, `Vim`, `Docker`, `Homebrew`, `SSH`, `VS Code`, `Terminal`, and `My Work` canonical;
-- keep compact technical controls such as `Edit` / `Delete` / `Item` / `Sheet` in English;
+- compact technical controls such as `Type`, `Shortcut`, `Command`, `Record`, `Edit`, `Delete`, `Item`, and `Sheet` may remain English;
 - never translate command contents or shortcut semantics.
 
 Aliases may contain both languages when that improves local search.

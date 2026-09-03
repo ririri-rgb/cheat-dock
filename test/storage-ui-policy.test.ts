@@ -7,7 +7,19 @@ const shortcut = readFileSync(new URL('../src/shortcut.ts', import.meta.url), 'u
 const uiText = readFileSync(new URL('../src/ui-text.ts', import.meta.url), 'utf8');
 const rustLib = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 
-test('shortcut Record capture is scoped to its explicit dialog control and ends on terminal states', () => {
+test('item editor has one authoritative Type selector and kind-specific primary fields', () => {
+  assert.match(main, /<label>Type<select data-field=\"kind\">/);
+  assert.match(main, /option value=\"shortcut\"/);
+  assert.match(main, /option value=\"command\"/);
+  assert.match(main, /data-kind-panel=\"shortcut\"/);
+  assert.match(main, /data-kind-panel=\"command\"/);
+  assert.match(main, /shortcutPanel\.hidden = kind !== 'shortcut'/);
+  assert.match(main, /commandPanel\.hidden = kind !== 'command'/);
+  assert.match(main, /data-type-warning/);
+});
+
+test('shortcut Record exists only inside the Shortcut panel and capture remains locally scoped', () => {
+  assert.match(main, /data-kind-panel=\"shortcut\">\$\{shortcutField/);
   assert.match(main, /data-record-shortcut/);
   assert.match(main, /button\.onkeydown\s*=\s*\(event\)/);
   assert.doesNotMatch(main, /document\.addEventListener\(['"]keydown/);
@@ -24,6 +36,11 @@ test('keyboard capture result is a fully discriminated union and Search keeps co
   assert.match(main, /compositionstart/);
   assert.match(main, /compositionend/);
   assert.match(main, /imeSearch\.input/);
+});
+
+test('copy buttons always use the raw primary value rather than formatted presentation text', () => {
+  assert.match(main, /const copyValue = escapeAttr\(view\.rawValue \?\? view\.value\)/);
+  assert.match(main, /navigator\.clipboard\.writeText\(button\.dataset\.copy!\)/);
 });
 
 test('Open Data Folder uses the native Finder command rather than shell execution', () => {

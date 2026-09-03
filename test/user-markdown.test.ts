@@ -30,7 +30,7 @@ const custom: CheatSheet = {
   }]
 };
 
-test('custom Sheet Markdown round-trips command internal spaces and raw shortcut without glyph persistence', () => {
+test('legacy mixed Markdown round-trips both fields without glyph persistence or command whitespace loss', () => {
   const markdown = serializeUserSheet(custom);
   assert.match(markdown, /title: Project A/);
   assert.match(markdown, /shortcut: Command \+ Shift \+ P/);
@@ -39,6 +39,7 @@ test('custom Sheet Markdown round-trips command internal spaces and raw shortcut
   assert.doesNotMatch(markdown, /⌘/);
   const parsed = validateUserMarkdown({ kind: 'sheet', id: custom.id, content: markdown }, builtins);
   assert.equal(parsed.sections[0]?.localizedTitles?.ja, 'デプロイ');
+  assert.equal(parsed.sections[0]?.items[0]?.kind, 'command');
   assert.equal(parsed.sections[0]?.items[0]?.shortcut, 'Command + Shift + P');
   assert.equal(parsed.sections[0]?.items[0]?.command, `printf '%s  %s' "$A" "$B"`);
   assert.equal(parsed.sections[0]?.items[0]?.description, 'Production  deploy command.');
@@ -47,6 +48,18 @@ test('custom Sheet Markdown round-trips command internal spaces and raw shortcut
   assert.equal(parsedAgain.sections[0]?.items[0]?.command, parsed.sections[0]?.items[0]?.command);
   assert.equal(parsedAgain.sections[0]?.items[0]?.shortcut, parsed.sections[0]?.items[0]?.shortcut);
   assert.equal(canonicalDocumentContent({ kind: 'sheet', id: custom.id, content: markdown }, builtins), markdown);
+});
+
+test('loading a mixed legacy item does not delete the inactive field', () => {
+  const raw = `---\nid: user-mixed\ntitle: Mixed\n---\n\n## Notes\n\n### Palette\n- id: user-palette\n- kind: shortcut\n- shortcut: Command + K\n- command: Press Command + K\n`;
+  const loaded = parseLoadedUserDocuments([
+    { kind: 'sheet', id: 'user-mixed', relativePath: 'cheats/user-mixed.md', content: raw }
+  ], [], builtins);
+  const item = loaded.userSheets[0]?.sections[0]?.items[0];
+  assert.equal(item?.kind, 'shortcut');
+  assert.equal(item?.shortcut, 'Command + K');
+  assert.equal(item?.command, 'Press Command + K');
+  assert.equal(loaded.documents.get('sheet:user-mixed')?.content, raw);
 });
 
 test('built-in overlays reuse the same constrained Markdown schema', () => {

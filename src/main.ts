@@ -18,7 +18,18 @@ import {
 import { detectLocale, sectionLabel, sheetLabel } from './locale.ts';
 import { fitNavigation } from './navigation.ts';
 import { sheetForApplication, type ForegroundApplication } from './native.ts';
-import { deletePersonalItem, editPersonalItem, itemFromDraft, normalizeItemDraft, sectionIdForTitle, type ItemDraft } from './personal-items.ts';
+import {
+  deletePersonalItem,
+  editPersonalItem,
+  editorKindForItem,
+  inactiveItemValueWarning,
+  isEditableItemKind,
+  itemFromDraft,
+  normalizeItemDraft,
+  sectionIdForTitle,
+  type EditableItemKind,
+  type ItemDraft
+} from './personal-items.ts';
 import { compactItemView, recentItemViews } from './presentation.ts';
 import { groupSearchHits } from './search-groups.ts';
 import { searchSheets } from './search.ts';
@@ -123,6 +134,10 @@ function field(name: string, label: string, value = '', required = false) {
   return `<label>${label}<input data-field="${escapeAttr(name)}" value="${escapeAttr(value)}"${required ? ' required' : ''}></label>`;
 }
 
+function typeField(kind: EditableItemKind) {
+  return `<label>Type<select data-field="kind"><option value="shortcut"${kind === 'shortcut' ? ' selected' : ''}>Shortcut</option><option value="command"${kind === 'command' ? ' selected' : ''}>Command</option></select></label>`;
+}
+
 function shortcutField(value = '') {
   const preview = formatMacShortcut(value);
   return `<label>Shortcut<div class="shortcut-field"><input data-field="shortcut" value="${escapeAttr(value)}" autocomplete="off" spellcheck="false"><button type="button" data-record-shortcut>Record</button></div><span class="shortcut-preview" data-shortcut-preview>${escapeHtml(preview)}</span></label>`;
@@ -190,6 +205,30 @@ function setupShortcutCapture(dialog: HTMLDialogElement) {
   updatePreview();
 }
 
+function setupItemTypeControls(dialog: HTMLDialogElement) {
+  const type = dialog.querySelector<HTMLSelectElement>('[data-field="kind"]');
+  const shortcutPanel = dialog.querySelector<HTMLElement>('[data-kind-panel="shortcut"]');
+  const commandPanel = dialog.querySelector<HTMLElement>('[data-kind-panel="command"]');
+  const shortcut = dialog.querySelector<HTMLInputElement>('[data-field="shortcut"]');
+  const command = dialog.querySelector<HTMLInputElement>('[data-field="command"]');
+  const warning = dialog.querySelector<HTMLElement>('[data-type-warning]');
+  if (!type || !shortcutPanel || !commandPanel || !shortcut || !command || !warning) return;
+
+  const refresh = () => {
+    const kind: EditableItemKind = type.value === 'command' ? 'command' : 'shortcut';
+    shortcutPanel.hidden = kind !== 'shortcut';
+    commandPanel.hidden = kind !== 'command';
+    const message = inactiveItemValueWarning(kind, shortcut.value, command.value);
+    warning.textContent = message ?? '';
+    warning.hidden = !message;
+  };
+
+  type.addEventListener('change', refresh);
+  shortcut.addEventListener('input', refresh);
+  command.addEventListener('input', refresh);
+  refresh();
+}
+
 function stateWithAddedItem(sheet: CheatSheet, sectionTitle: string, item: CheatItem): AppState {
   const sectionId = sectionIdForTitle(sectionTitle);
   if (sheet.userOwned) {
@@ -214,13 +253,20 @@ function stateWithAddedItem(sheet: CheatSheet, sectionTitle: string, item: Cheat
 
 function readItemDraft(dialog: HTMLDialogElement): ItemDraft {
   const get = (name: string) => dialog.querySelector<HTMLInputElement>(`[data-field="${name}"]`)?.value ?? '';
-  return { title: get('title'), section: get('section'), shortcut: get('shortcut'), command: get('command'), description: get('description') };
+  const kind = dialog.querySelector<HTMLSelectElement>('[data-field="kind"]')?.value === 'command' ? 'command' : 'shortcut';
+  return { title: get('title'), section: get('section'), kind, shortcut: get('shortcut'), command: get('command'), description: get('description') };
 }
 
 function openItemEditor(sheet: CheatSheet, section?: CheatSection, item?: CheatItem) {
+  if (item && !isEditableItemKind(item.kind)) {
+    transientNotice = `${item.kind} items remain Markdown-editable; the GUI editor currently supports Shortcut and Command items.`;
+    render();
+    return;
+  }
   const dialog = document.createElement('dialog');
   const editing = Boolean(section && item);
-  dialog.innerHTML = `<form class="editor"><h2>${editing ? 'Edit personal item' : 'Add personal item'}</h2>${field('title', 'Title', item?.title ?? '', true)}${field('section', 'Section', section?.title ?? 'Personal', true)}${shortcutField(item?.shortcut ?? '')}${field('command', 'Command', item?.command ?? '')}${field('description', 'Description', item?.description ?? '')}<p class="form-error" hidden></p><div class="actions"><button type="button" data-cancel>Cancel</button><button type="submit">${editing ? 'Save' : 'Add'}</button></div></form>`;
+  const initialKind = editorKindForItem(item);
+  dialog.innerHTML = `<form class="editor"><h2>${editing ? 'Edit personal item' : 'Add personal item'}</h2>${field('title', 'Title', item?.title ?? '', true)}${field('section', 'Section', section?.title ?? 'Personal', true)}${typeField(initialKind)}<div data-kind-panel="shortcut">${shortcutField(item?.shortcut ?? '')}</div><div data-kind-panel="command">${field('command', 'Command', item?.command ?? '')}</div>${field('description', 'Description', item?.description ?? '')}<p class="confirm-copy" data-type-warning hidden></p><p class="form-error" hidden></p><div class="actions"><button type="button" data-cancel>Cancel</button><button type="submit">${editing ? 'Save' : 'Add'}</button></div></form>`;
   document.body.append(dialog);
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
   dialog.querySelector<HTMLButtonElement>('[data-cancel]')!.onclick = () => dialog.close('cancel');
@@ -230,7 +276,7 @@ function openItemEditor(sheet: CheatSheet, section?: CheatSection, item?: CheatI
     const normalized = normalizeItemDraft(draft);
     const nextItem = itemFromDraft(item?.id ?? `user-${crypto.randomUUID()}`, draft, item);
     if (!normalized || !nextItem) {
-      setDialogError(dialog, 'Title and section are required.');
+      setDialogError(dialog, `Title, section, and ${draft.kind === 'shortcut' ? 'Shortcut' : 'Command'} are required.`);
       return;
     }
     const submit = dialog.querySelector<HTMLButtonElement>('button[type="submit"]')!;
@@ -244,6 +290,7 @@ function openItemEditor(sheet: CheatSheet, section?: CheatSection, item?: CheatI
   };
   dialog.showModal();
   setupShortcutCapture(dialog);
+  setupItemTypeControls(dialog);
   dialog.querySelector<HTMLInputElement>('[data-field="title"]')?.focus();
 }
 
@@ -360,7 +407,10 @@ function itemValueMarkup(item: CheatItem): string {
 function renderItem(sheet: CheatSheet, section: CheatSection, item: CheatItem, context?: string) {
   const view = compactItemView(item, locale);
   const editRef = `${sheet.id}:${section.id}:${item.id}`;
-  return `<div class="item-cell layout-${view.layout}">${context ? `<div class="search-context">${escapeHtml(context)}</div>` : ''}<article id="item-${escapeAttr(sheet.id)}-${escapeAttr(item.id)}" class="item" tabindex="0" data-view="${escapeAttr(`${sheet.id}:${item.id}`)}"><span class="item-label">${escapeHtml(view.label)}</span>${itemValueMarkup(item)}${item.userOwned ? `<span class="user-actions"><button data-edit="${escapeAttr(editRef)}">${text.edit}</button><button class="danger" data-delete="${escapeAttr(editRef)}">${text.delete}</button></span>` : ''}</article></div>`;
+  const editAction = item.userOwned && isEditableItemKind(item.kind) ? `<button data-edit="${escapeAttr(editRef)}">${text.edit}</button>` : '';
+  const deleteAction = item.userOwned ? `<button class="danger" data-delete="${escapeAttr(editRef)}">${text.delete}</button>` : '';
+  const actions = editAction || deleteAction ? `<span class="user-actions">${editAction}${deleteAction}</span>` : '';
+  return `<div class="item-cell layout-${view.layout}">${context ? `<div class="search-context">${escapeHtml(context)}</div>` : ''}<article id="item-${escapeAttr(sheet.id)}-${escapeAttr(item.id)}" class="item" tabindex="0" data-view="${escapeAttr(`${sheet.id}:${item.id}`)}"><span class="item-label">${escapeHtml(view.label)}</span>${itemValueMarkup(item)}${actions}</article></div>`;
 }
 
 function renderRecent(sheet: CheatSheet): string {
@@ -534,7 +584,7 @@ function render(options: { focusSearch?: boolean } = {}) {
     const targetSheet = sheets.find((candidate) => candidate.id === sheetId);
     const section = targetSheet?.sections.find((candidate) => candidate.id === sectionId);
     const item = section?.items.find((value) => value.id === itemId);
-    if (targetSheet && section && item?.userOwned) openItemEditor(targetSheet, section, item);
+    if (targetSheet && section && item?.userOwned && isEditableItemKind(item.kind)) openItemEditor(targetSheet, section, item);
   });
 
   root.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((button) => button.onclick = (event) => {

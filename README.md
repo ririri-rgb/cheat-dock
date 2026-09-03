@@ -6,7 +6,7 @@
 
 ## Project status
 
-The macOS menu-bar foundation is on `main`. PR #6 moves user-authored content from WebView localStorage to human-readable Markdown files and adds explicit keyboard-shortcut recording. It is **not yet a signed/notarized end-user release**.
+The macOS menu-bar foundation is on `main`. PR #6 moves user-authored content from WebView localStorage to human-readable Markdown files and adds explicit keyboard-shortcut recording. Physical Mac qualification has passed migration, persistence, Finder access, direct editing, conflict protection, Record, command-literal safety, and Japanese IME checks; the final item-editor semantic refinement remains under qualification. It is **not yet a signed/notarized end-user release**.
 
 ## Privacy
 
@@ -32,17 +32,18 @@ Custom Sheet titles are not used as filenames; stable IDs keep file identity unc
 
 Use **Open Data Folder** in the popup to reveal this directory in Finder. Files may be edited directly in VS Code/Vim; closing and reopening the popup (or using Reload Files after an error) reloads them. See [docs/user-data.md](docs/user-data.md).
 
-## Shortcut authoring and Record
+## Item types, Shortcut, and Command
 
-Markdown stores author-friendly canonical values such as:
+`kind` is the authoritative item semantic. The GUI currently focuses on creating/editing two kinds:
 
-```md
-- shortcut: Command + Shift + P
-```
+- **Shortcut** — a keyboard chord the user presses. Markdown stores canonical text such as `Command + Shift + P`; macOS presentation renders `⌘ ⇧ P`. The editor offers **Record** only for Shortcut items.
+- **Command** — literal text typed/executed in a terminal, CLI, command palette, or similar text-command surface. `git status`, `command -v node`, `Press Command + K`, and repeated spaces are displayed/copied exactly as stored. Command values are never passed through the macOS shortcut formatter.
 
-The macOS presentation renders `⌘ ⇧ P`. Item dialogs still accept typed shortcut text and also provide **Record**, which captures one actual chord such as `⌘K` and stores `Command + K`. Multi-chord sequences are a future enhancement.
+The compact editor has one **Type** selector. New GUI items persist only the primary field for their selected kind, so a Shortcut item does not also store `command` and a Command item does not also store `shortcut`.
 
-Explicit keyboard grammar inside presentation text is formatted too (`Press Command + K` → `Press ⌘ K`), while CLI text such as `command -v node` is never changed. Copy keeps the raw command/shortcut value.
+Historical Markdown/localStorage may contain both fields. Loading does not rewrite or delete them. `kind` decides which value is primary for display; malformed kind/field mismatches use a compatibility fallback. Editing a mixed legacy item shows a compact warning before Save removes the inactive field.
+
+Shortcut Record captures one chord such as `⌘K` and stores `Command + K`. Multi-chord sequences are a future enhancement.
 
 ## Development
 
@@ -86,7 +87,8 @@ User Markdown is treated as untrusted text. Cheat Dock uses a constrained parser
 
 ## Current limitations
 
-- PR #6 still requires physical-Mac qualification before merge.
+- PR #6 must not be merged until the final physical-Mac item-editor semantic check is reviewed.
+- GUI creation/editing currently focuses on Shortcut and Command; operation/procedure/snippet remain Markdown-compatible and directly editable in the data folder.
 - User Markdown reload is popup-open/manual, not real-time file watching.
 - Concurrent GUI/external edits do not three-way merge; conflicts require Reload Files.
 - Shortcut Record supports one chord, not VS Code-style multi-chord sequences.
