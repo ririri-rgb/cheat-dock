@@ -6,3 +6,6 @@ src-tauri/target/
 .env
 .env.*
 !.env.example
+*.p12
+*.cer
+AuthKey_*.p8

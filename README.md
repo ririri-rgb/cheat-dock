@@ -6,7 +6,9 @@
 
 ## Project status
 
-The macOS menu-bar foundation is on `main`. PR #6 moves user-authored content from WebView localStorage to human-readable Markdown files and adds explicit keyboard-shortcut recording. Physical Mac qualification has passed migration, persistence, Finder access, direct editing, conflict protection, Record, command-literal safety, and Japanese IME checks; the final item-editor semantic refinement remains under qualification. It is **not yet a signed/notarized end-user release**.
+The usable macOS foundation and file-backed personal-data work are on `main` and have passed physical Mac qualification. The next gate is **macOS v0.1 release qualification**: production `.app`/DMG packaging, universal architecture, Developer ID signing, Apple notarization, fresh install, upgrade, and user-data retention.
+
+There is **no public v0.1 release yet**. GitHub tags/Releases and signed/notarized public assets are intentionally deferred until the release checklist passes.
 
 ## Privacy
 
@@ -61,6 +63,21 @@ Rust storage tests use real temporary filesystem operations:
 cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
 
+## Release qualification
+
+The candidate application version is `0.1.0`, but no tag or Release exists yet. `src-tauri/tauri.conf.json` is the authoritative release version; CI verifies that npm/package-lock/Cargo mirrors do not drift.
+
+A release-shaped universal macOS build can be checked with:
+
+```sh
+npm ci
+npm run release:check
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+APPLE_SIGNING_IDENTITY=- npm run tauri build -- --target universal-apple-darwin --bundles app,dmg
+```
+
+The ad-hoc identity above is only for build qualification. A public download must use Developer ID signing and Apple notarization and then pass fresh-install/upgrade tests. See [the macOS release qualification guide](docs/macos-release-qualification.md).
+
 ## Cheat Sheet format
 
 Cheat Sheets use constrained frontmatter plus `##` sections and `###` items. Example:
@@ -87,12 +104,12 @@ User Markdown is treated as untrusted text. Cheat Dock uses a constrained parser
 
 ## Current limitations
 
-- PR #6 must not be merged until the final physical-Mac item-editor semantic check is reviewed.
+- No signed/notarized downloadable build yet; release qualification is in progress.
 - GUI creation/editing currently focuses on Shortcut and Command; operation/procedure/snippet remain Markdown-compatible and directly editable in the data folder.
 - User Markdown reload is popup-open/manual, not real-time file watching.
 - Concurrent GUI/external edits do not three-way merge; conflicts require Reload Files.
 - Shortcut Record supports one chord, not VS Code-style multi-chord sequences.
-- No signed/notarized downloadable build yet.
+- There is no auto-updater; v0.1 upgrade qualification uses normal app replacement while retaining Application Support data.
 - Seed data remains deliberately sparse.
 
 ## License

@@ -18,6 +18,14 @@ Rust/storage validation:
 cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
 
+Release identity validation:
+
+```sh
+npm run release:identity
+```
+
+`src-tauri/tauri.conf.json > version` is the release-version authority. Keep `package.json`, the root `package-lock.json`, and the Cargo package version synchronized. Do not casually change `dev.cheatdock.app`: Tauri's application-data directory is identifier-scoped and existing personal Markdown depends on that identity.
+
 ## Adding a built-in Cheat Sheet
 
 1. Add one Markdown file under repository `cheats/`.
@@ -30,7 +38,7 @@ Do not bulk-submit guessed shortcuts or generated command lists.
 
 ## User Markdown compatibility
 
-PR #6 intentionally reuses the same constrained Markdown schema for file-backed custom Sheets and built-in overlays. Changes to the parser/serializer must preserve:
+The file-backed layer reuses the same constrained Markdown schema for custom Sheets and built-in overlays. Changes to the parser/serializer must preserve:
 
 - stable IDs;
 - raw `shortcut` values rather than presentation glyphs;
@@ -44,6 +52,12 @@ When changing storage code, include real temporary-filesystem tests. Never write
 ## Shortcut changes
 
 Keyboard capture is explicit and scoped to the Record control in the item dialog. Do not install document-wide keyboard interception. Keep Meta → Command, Control → Control, Alt → Option, Shift → Shift, and keep Search IME composition independent from shortcut capture.
+
+## macOS release engineering
+
+See `docs/macos-release-qualification.md` before changing packaging, bundle identity, minimum macOS version, signing, entitlements, or release workflows.
+
+Public macOS artifacts must eventually be Developer ID signed and notarized. Ad-hoc CI bundles are qualification artifacts only. Never commit signing certificates, `.p12` files, App Store Connect private keys, Apple IDs/passwords, or other release credentials. Do not create tags or GitHub Releases as part of an ordinary implementation PR.
 
 ## Pull requests
 
