@@ -138,8 +138,20 @@ The macOS release identity is deliberately stable:
 
 The bundle identifier is also the Application Support identity used by Tauri's `app_data_dir`; changing it without a migration would strand existing file-backed user data, so the identifier is frozen for v0.1.
 
-Release qualification uses two lanes. Pull-request CI performs a real universal production build with ad-hoc signing, inspects the generated Info.plist and executable slices, verifies the code signature and DMG contents, and retains only a short-lived Actions artifact. A manual protected `macos-release` environment is prepared for Developer ID Application signing and Apple notarization. Signing certificates and App Store Connect keys are never committed.
+### v0.1 GitHub distribution lane
 
-Hardened Runtime is explicitly enabled and no custom entitlements are currently required. The release gate additionally requires Gatekeeper/stapling validation and physical fresh-install/upgrade/data-retention qualification on the exact notarized candidate artifact. See `docs/macos-release-qualification.md`.
+The v0.1 release candidate is a real universal production build with **ad-hoc signing** (`APPLE_SIGNING_IDENTITY=-`). Qualification inspects generated Info.plist identity, executable slices, code-sign validity, absence of `get-task-allow`, DMG contents, and SHA-256 output. The resulting short-lived Actions artifact must be downloaded through a normal browser path and used unchanged for Gatekeeper, fresh-install, upgrade, and data-retention qualification.
+
+The v0.1 artifact is **not Developer ID signed and not Apple-notarized**. The release trust model therefore emphasizes the official GitHub repository, exact Release/filename, and published DMG SHA-256. SHA-256 is an integrity check, not Apple developer-identity verification.
+
+A browser-downloaded copy may be blocked on first launch by Gatekeeper. Documentation uses only Apple's official per-app approval path in System Settings → Privacy & Security; it does not disable Gatekeeper/SIP or remove quarantine attributes.
+
+### Future optional Developer ID lane
+
+The protected `signed-notarized-universal` workflow remains in place for a possible future Apple Developer Program-backed distribution model. It is not a v0.1 blocker and no Apple credentials are required or created for the current release path.
+
+If activated in the future, that lane remains gated by explicit manual dispatch, `signed_notarization=true`, exact `main` ref, and the `macos-release` environment. Signing certificates and App Store Connect keys are never committed.
+
+Hardened Runtime remains explicitly enabled and no custom entitlements are currently required. See `docs/macos-release-qualification.md` for the current v0.1 gates.
 
 No AI, cloud, telemetry, account, arbitrary command execution, global shortcut permission, Accessibility permission, updater, or `macos-private-api` is enabled. User-authored text is escaped and not executed as HTML.
