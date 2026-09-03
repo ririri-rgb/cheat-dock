@@ -1,10 +1,16 @@
 # User data files
 
-PR #6 makes human-readable Markdown the source of truth for user-authored Cheat Dock content.
+Human-readable Markdown is the source of truth for user-authored Cheat Dock content.
 
 ## Location
 
-Cheat Dock asks Tauri for the OS-standard application-data directory; it does not hard-code a home-directory path. On macOS this resolves under the user's Application Support area for the app identifier. Inside it Cheat Dock owns:
+Cheat Dock asks Tauri for the OS-standard application-data directory; it does not hard-code a home-directory path. Tauri scopes that directory by the configured bundle identifier. The v0.1 release candidate deliberately keeps the qualified identifier `dev.cheatdock.app`, so on macOS the data root is conceptually:
+
+```text
+~/Library/Application Support/dev.cheatdock.app/user-data/
+```
+
+Inside it Cheat Dock owns:
 
 ```text
 user-data/
@@ -16,6 +22,8 @@ user-data/
 
 Use **Open Data Folder** in the popup. On macOS this uses the public AppKit `NSWorkspace` Finder API. Cheat Dock also copies the resolved path to the clipboard as a recovery convenience. No shell `open` command is executed.
 
+The bundle identifier is now part of the user-data compatibility contract. Changing it would point Tauri at a different application-data directory, so any future identifier change requires an explicitly qualified data migration first.
+
 ## What goes where
 
 - `cheats/`: user-created custom Cheat Sheets. Filename identity is the stable Sheet ID, not the title.
@@ -23,6 +31,12 @@ Use **Open Data Folder** in the popup. On macOS this uses the public AppKit `NSW
 - bundled repository `cheats/`: built-ins only; GUI personal CRUD never modifies these files.
 
 Pins, Recently viewed, expanded sections, and other UI state remain validated localStorage rather than being mixed into authored Markdown.
+
+## Upgrade and uninstall behavior
+
+Normal macOS app replacement changes `/Applications/Cheat Dock.app` but must not move or delete the identifier-scoped Application Support directory. The v0.1 release checklist therefore tests upgrading an existing qualified build while retaining custom Sheets/overlays.
+
+Deleting only the `.app` bundle is not a request to delete personal data. Reinstalling the same bundle identity should find the retained Markdown again. Users who intentionally want a full reset can back up and then remove the application-data directory themselves.
 
 ## Shortcut and Command files
 
@@ -46,11 +60,11 @@ Shortcut values are stored as editable canonical text and rendered with macOS gl
 
 Historical files may contain both `shortcut` and `command`. Opening/reloading such a file preserves both raw fields and does not rewrite it. The valid `kind` selects primary presentation. When that mixed item is explicitly saved through the Shortcut/Command GUI editor, a compact warning explains that the inactive value will be removed so the item returns to the one-primary-field invariant.
 
-`operation`, `procedure`, and `snippet` remain valid Markdown kinds. Their authoring continues through direct Markdown in PR #6 rather than a larger GUI editor expansion.
+`operation`, `procedure`, and `snippet` remain valid Markdown kinds. Their authoring continues through direct Markdown rather than a larger GUI editor expansion.
 
 ## Direct editing
 
-You can edit user Markdown in VS Code, Vim, or another text editor. Save the file, then close/reopen the Cheat Dock popup or use **Reload Files** when shown. PR #6 deliberately avoids a real-time file watcher to keep race/battery behavior simple.
+You can edit user Markdown in VS Code, Vim, or another text editor. Save the file, then close/reopen the Cheat Dock popup or use **Reload Files** when shown. Cheat Dock deliberately avoids a real-time file watcher to keep race/battery behavior simple.
 
 The file must follow `docs/cheat-sheet-authoring.md`. One malformed file is skipped and reported; valid user files and built-ins continue to load. The error surface includes the relative file path and a reason so you can open the data folder and repair it.
 
@@ -68,7 +82,7 @@ If they differ:
 4. pressing Save again still cannot overwrite it;
 5. explicitly Reload Files (or reopen the popup), review the external change, then edit again.
 
-There is no three-way merge in PR #6.
+There is no three-way merge in v0.1.
 
 Unrelated files are not reserialized. If an external editor changes spacing/formatting in Sheet A and the GUI only edits Sheet B, Sheet A remains byte-for-byte untouched. If the GUI intentionally edits Sheet A, the constrained serializer writes its canonical structure while preserving authored payload semantics such as internal command spaces.
 
@@ -97,3 +111,5 @@ The native boundary rejects:
 - more than 256 loaded Markdown files per kind.
 
 User Markdown is parsed as constrained data and escaped in the UI. It is never executed as HTML or shell code.
+
+See `docs/macos-release-qualification.md` for the install/upgrade data-retention gate.
