@@ -121,7 +121,7 @@ References:
 
 Use Apple's current notary service. Do not use deprecated `altool`; Apple requires modern `notarytool`/Notary API workflows.
 
-The manual `signed-notarized-universal` qualification job is gated behind the `macos-release` GitHub Environment and is only started by `workflow_dispatch` with `signed_notarization=true`. A normal PR update or push to `main` cannot start the Developer ID/notarization job.
+The manual `signed-notarized-universal` qualification job is gated behind the `macos-release` GitHub Environment and only runs when all three conditions are true: the event is `workflow_dispatch`, `signed_notarization=true`, and the selected ref is exactly `refs/heads/main`. A normal PR update, push to `main`, or manual dispatch against another branch cannot start the Developer ID/notarization job.
 
 Required environment-scoped secrets:
 
@@ -222,4 +222,4 @@ All items below must be true before the separate release phase creates `v0.1.0`:
 
 ## Current qualification status
 
-The non-secret production build infrastructure is qualified in this PR. The Developer ID/notarization lane is intentionally manual and remains **CREDENTIAL REQUIRED** until the `macos-release` environment is configured and the lane is explicitly dispatched. Fresh-install and upgrade/data-retention qualification remain **PHYSICAL CHECK REQUIRED** until performed on the exact signed/notarized candidate.
+The non-secret production build infrastructure is qualified in this PR. The Developer ID/notarization lane is intentionally manual and remains **CREDENTIAL REQUIRED** until the `macos-release` environment is configured and the lane is explicitly dispatched from `main`. Fresh-install and upgrade/data-retention qualification remain **PHYSICAL CHECK REQUIRED** until performed on the exact signed/notarized candidate.
