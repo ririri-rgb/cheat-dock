@@ -25,13 +25,16 @@ jobs:
     env:
       CI: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master snapshot 2026-08-05
         with:
+          toolchain: stable
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - run: npm ci
       - run: npm run release:check
@@ -65,7 +68,7 @@ jobs:
         run: |
           ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/Cheat-Dock.app.zip"
           shasum -a 256 "$DMG_PATH" "$RUNNER_TEMP/Cheat-Dock.app.zip" | tee "$RUNNER_TEMP/SHA256SUMS.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cheat-dock-v0.1-candidate-universal-adhoc
           retention-days: 7
@@ -82,13 +85,16 @@ jobs:
     env:
       CI: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master snapshot 2026-08-05
         with:
+          toolchain: stable
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - name: Require release credentials
         env:
@@ -124,6 +130,12 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: npm run tauri build -- --target universal-apple-darwin --bundles app,dmg
+      - name: Remove App Store Connect API key
+        if: always()
+        run: |
+          if [[ -n "${APPLE_API_KEY_PATH:-}" ]]; then
+            rm -f "$APPLE_API_KEY_PATH"
+          fi
       - name: Locate signed bundles
         run: |
           APP_PATH="$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
@@ -150,7 +162,7 @@ jobs:
         run: |
           ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/Cheat-Dock.notarized.app.zip"
           shasum -a 256 "$DMG_PATH" "$RUNNER_TEMP/Cheat-Dock.notarized.app.zip" | tee "$RUNNER_TEMP/SHA256SUMS.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cheat-dock-v0.1-candidate-universal-notarized
           retention-days: 7
