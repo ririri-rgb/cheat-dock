@@ -77,6 +77,32 @@ The workflow uploads the ad-hoc DMG and zipped app as short-lived Actions artifa
 
 Tauri DMG documentation: https://v2.tauri.app/distribute/dmg/
 
+## GitHub Actions supply-chain policy
+
+Release-sensitive workflow Action code is pinned to reviewed immutable full commit SHAs rather than mutable tags or branches. Human-readable upstream versions remain in comments for maintenance review.
+
+Current reviewed pins:
+
+| Action | Reviewed upstream version/source | Pinned commit |
+| --- | --- | --- |
+| `actions/checkout` | `v7.0.1` | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
+| `actions/setup-node` | `v7.0.0` | `820762786026740c76f36085b0efc47a31fe5020` |
+| `actions/upload-artifact` | `v4.6.2` | `ea165f8d65b6e75b540449e92b4886f43607fa02` |
+| `dtolnay/rust-toolchain` | reviewed `master` snapshot, 2026-08-05 | `6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772` |
+
+`dtolnay/rust-toolchain` is intentionally pinned to a commit in `master` history, as its upstream documentation requires for full-SHA pinning. The workflow separately passes `toolchain: stable`, so the immutable Action implementation and the repository's Rust `stable` toolchain policy are independent.
+
+Checkout uses `persist-credentials: false`; the workflows do not need a repository write credential after checkout. GitHub token permissions remain only:
+
+```yaml
+permissions:
+  contents: read
+```
+
+The repository already has weekly Dependabot updates for the `github-actions` ecosystem. Dependabot is the normal path for proposing reviewed Action SHA/version updates; do not replace pins with mutable refs just to simplify upgrades.
+
+Before accepting an Action update, confirm the exact official upstream tag/commit, review material release notes/security changes, and rerun normal CI plus the universal production qualification.
+
 ## Signing policy
 
 Public distribution outside the Mac App Store must use a **Developer ID Application** certificate. Do not use an Apple Development, Apple Distribution, ad-hoc, or self-signed identity for the public release.
@@ -95,9 +121,9 @@ References:
 
 Use Apple's current notary service. Do not use deprecated `altool`; Apple requires modern `notarytool`/Notary API workflows.
 
-The manual `signed-notarized-universal` qualification job is gated behind the `macos-release` GitHub Environment and is only started by `workflow_dispatch` with `signed_notarization=true`.
+The manual `signed-notarized-universal` qualification job is gated behind the `macos-release` GitHub Environment and is only started by `workflow_dispatch` with `signed_notarization=true`. A normal PR update or push to `main` cannot start the Developer ID/notarization job.
 
-Required secrets:
+Required environment-scoped secrets:
 
 - `APPLE_CERTIFICATE` — base64 `.p12` containing the Developer ID Application certificate and private key;
 - `APPLE_CERTIFICATE_PASSWORD`;
@@ -106,9 +132,11 @@ Required secrets:
 - `APPLE_API_KEY`;
 - `APPLE_API_KEY_P8_BASE64` — base64 App Store Connect API private key.
 
-The workflow materializes the API key only in the runner temp directory, runs the normal Tauri production build, then verifies Developer ID signature, Hardened Runtime, Gatekeeper assessment, and the stapled app ticket. Credentials must never be committed.
+Apple secrets are exposed only to the credential-validation, API-key-materialization, and signed Tauri build steps that require them. They are not passed to checkout, Node/Rust setup, `npm ci`, verification, checksum generation, or artifact upload. The temporary `.p8` is created with mode `0600` in `$RUNNER_TEMP` and explicitly removed with an `always()` cleanup step after the signed build attempt. It is not included in artifact paths.
 
-A successful CI notarization is necessary but is not enough to publish v0.1. The resulting DMG must still pass the physical install/upgrade checklist below.
+The `macos-release` environment should use environment-scoped secrets and, where the GitHub account/repository plan supports it, deployment protection with manual approval/required reviewers. Lack of plan/API support for reviewer enforcement is not an application blocker, but release operators should enable it when available.
+
+A successful CI notarization is necessary but is not enough to publish v0.1. Until credentials are configured and the manual lane is actually run, status remains **CREDENTIAL REQUIRED**. The resulting DMG must still pass the physical install/upgrade checklist below, whose status remains **PHYSICAL CHECK REQUIRED**.
 
 ## Fresh-install qualification
 
@@ -159,17 +187,22 @@ Before release:
 - [ ] DMG visual layout is acceptable on a physical Mac.
 - [ ] No debug/dev server URL or development-only permission is present.
 
+Qualification artifacts use a seven-day Actions retention period. They are review inputs only and are never promoted automatically to GitHub Release assets.
+
 ## Security review
 
 Release engineering must preserve the existing security model:
 
-- no shell execution capability;
+- all Action code in release-sensitive workflows is immutable full-SHA pinned;
+- no mutable `@main`, `@master`, `@stable`, major tag, or other moving Action ref in the release workflow;
+- no shell execution capability in the application;
 - no updater/network permission added as part of packaging;
 - no cloud, account, AI, analytics, or telemetry;
 - no custom entitlements unless a concrete feature requires one;
-- signing/notarization secrets only in protected CI environment secrets;
-- no Developer ID private key in repository files or Actions artifacts;
+- signing/notarization secrets only in protected CI environment secrets and only at the minimum required steps;
+- no Developer ID private key or App Store Connect `.p8` in repository files or Actions artifacts;
 - no `get-task-allow` in a release signature;
+- no automatic tag creation, GitHub Release creation, public asset publication, Developer ID signing, or notarization on normal pushes;
 - built-in/user Markdown separation and path/symlink protections unchanged.
 
 ## v0.1 release gate
@@ -189,4 +222,4 @@ All items below must be true before the separate release phase creates `v0.1.0`:
 
 ## Current qualification status
 
-This PR is expected to prove the non-secret production build and provide the signed/notarized pipeline. Developer ID/notarization and physical fresh-install/upgrade results remain intentionally unchecked until the project owner runs them with release credentials and the resulting candidate artifact.
+The non-secret production build infrastructure is qualified in this PR. The Developer ID/notarization lane is intentionally manual and remains **CREDENTIAL REQUIRED** until the `macos-release` environment is configured and the lane is explicitly dispatched. Fresh-install and upgrade/data-retention qualification remain **PHYSICAL CHECK REQUIRED** until performed on the exact signed/notarized candidate.
