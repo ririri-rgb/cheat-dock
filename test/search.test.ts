@@ -42,6 +42,10 @@ test('two-letter Latin query does not prefix-match weak prose words', () => {
   assert.equal(isShortLatinToken('Ab'), true);
 });
 
+test('two-letter Latin query can still match an exact weak-field word', () => {
+  assert.equal(matchWeakProseField('Use AB mode for this operation.', 'ab'), true);
+});
+
 test('longer Latin weak-field prefixes and full words remain searchable', () => {
   assert.equal(searchSheets(sheets, 'abs')[0]?.item.id, 'pwd');
   assert.equal(searchSheets(sheets, 'absolute')[0]?.item.id, 'pwd');
