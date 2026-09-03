@@ -1,6 +1,6 @@
 # macOS manual qualification
 
-Record macOS version, architecture, commit SHA, and failures. Checked items reflect physical evidence reported by the project owner. PR #6 physical qualification is complete for the merge gate; unchecked items remain follow-up observations rather than claimed PASS evidence.
+Checked items reflect physical evidence reported by the project owner. PR #6 physical qualification is complete for the merge gate; unchecked items remain follow-up observations rather than claimed PASS evidence.
 
 ## Previously qualified foundation (PR #1)
 
@@ -53,7 +53,7 @@ Record macOS version, architecture, commit SHA, and failures. Checked items refl
 ## 5. Corrupt-file recovery
 
 - [x] A corrupt user Markdown file is isolated instead of preventing app startup.
-- [x] Built-ins, search, and other valid content remain usable while a user file is corrupt.
+- [x] Built-ins and search remain usable while a user file is corrupt.
 - [ ] A compact storage error shows the relative file path and reason.
 - [ ] Open Data Folder provides a repair path; Cheat Dock does not delete/overwrite the corrupt file.
 - [ ] Fix the Markdown and reload/reopen; the error clears and content returns.
@@ -75,8 +75,7 @@ Record macOS version, architecture, commit SHA, and failures. Checked items refl
 
 - [x] Japanese Search IME showed no regression during PR #6 qualification.
 - [x] Record mode remains limited to the explicit Record surface; normal Search/input behavior works outside capture.
-- [ ] `コミット 戻す` and `セル 書式` compose without duplicate/interleaved text on every final target environment.
-- [ ] Search updates after composition commit and ordinary Latin search remains immediate on every final target environment.
+- [ ] Re-run broader Japanese composition cases on future release candidates as needed.
 
 ## 8. Product decision: Shortcut and Command are separate semantics
 
@@ -91,7 +90,6 @@ This is resolved as a product semantic decision, not as a missing glyph-formatti
 
 Physical PASS:
 
-- [x] Add/Edit exposes compact **Type** with Shortcut and Command choices.
 - [x] Type = Shortcut shows Shortcut + Record and hides Command.
 - [x] Type = Command shows Command and hides Shortcut/Record.
 - [x] Switch Shortcut → Command → Shortcut before Save; the in-dialog hidden value remains in editor memory.
