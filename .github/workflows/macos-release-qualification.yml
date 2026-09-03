@@ -79,7 +79,7 @@ jobs:
             ${{ runner.temp }}/SHA256SUMS.txt
 
   signed-notarized-universal:
-    if: github.event_name == 'workflow_dispatch' && inputs.signed_notarization
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_notarization && github.ref == 'refs/heads/main'
     runs-on: macos-latest
     environment: macos-release
     env:
