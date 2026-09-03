@@ -117,6 +117,18 @@ Final physical checks for this refinement:
 - [ ] Pinning, grouped Current/Other search, and selective localization remain intact.
 - [ ] No Accessibility permission appears and no network connection is required for core use.
 
+## 11. Final search relevance finding
+
+Physical qualification at `40bb53c6e83b2278b18800d8a378cbfd25c15750` found a short-Latin false positive: while My Work was selected, searching `Ab` also returned Terminal `pwd` because its weak prose description contains the word `absolute`.
+
+The final search refinement keeps title/alias/tag/command/shortcut matching responsive, but weak prose/context fields use word-aware Latin matching: one- or two-character Latin/alphanumeric tokens only match an exact weak-field word, while three-or-more-character tokens may match a word prefix. Japanese/CJK weak-field substring behavior remains unchanged.
+
+Physical recheck:
+
+- [ ] Select My Work and search `Ab`: the My Work `Ab` item appears, and Terminal `pwd` does **not** appear under Other Sheets.
+- [ ] Search `abs`: Terminal `pwd` may appear through the `absolute` description prefix.
+- [ ] Confirm Japanese IME/search still behaves normally after the relevance change.
+
 ## Qualification record
 
 For the final semantic-refinement pass, record:
