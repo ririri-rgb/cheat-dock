@@ -57,6 +57,8 @@ fi
 case "$SIGNING_MODE" in
   adhoc)
     grep -q 'Signature=adhoc' <<<"$SIGNATURE_INFO" || { echo 'Expected ad-hoc signature for CI qualification build.' >&2; exit 1; }
+    grep -Eq 'flags=.*runtime' <<<"$SIGNATURE_INFO" || { echo 'Expected hardened runtime flag for ad-hoc qualification build.' >&2; exit 1; }
+    grep -q 'Page size=4096' <<<"$SIGNATURE_INFO" || { echo 'Expected 4096-byte code-signature page size for macOS 26.5+ compatibility.' >&2; exit 1; }
     ;;
   developer-id)
     grep -q 'Authority=Developer ID Application:' <<<"$SIGNATURE_INFO" || { echo 'Expected Developer ID Application signature.' >&2; exit 1; }

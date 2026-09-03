@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   production-universal:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'chore/macos-release-qualification'
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'chore/macos-release-qualification' || github.head_ref == 'fix/macos-26-adhoc-pagesize'
     runs-on: macos-latest
     env:
       CI: true
@@ -50,6 +50,10 @@ jobs:
           test -n "$DMG_PATH" && test -f "$DMG_PATH"
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
           echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
+      - name: Normalize ad-hoc signatures for macOS 26.5+
+        run: |
+          bash scripts/resign-macos-adhoc.sh "$APP_PATH"
+          bash scripts/repack-macos-adhoc-dmg.sh "$DMG_PATH"
       - name: Verify generated app identity and architecture
         run: bash scripts/verify-macos-bundle.sh "$APP_PATH" adhoc
       - name: Verify DMG contents
