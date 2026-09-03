@@ -8,6 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "test": "node --test --import tsx test/*.test.ts",
     "check": "npm run build && npm test",
+    "release:identity": "node scripts/check-release-identity.mjs",
+    "release:check": "npm run check && npm run release:identity",
     "tauri": "tauri"
   },
   "dependencies": {
