@@ -61,6 +61,9 @@ case "$SIGNING_MODE" in
   developer-id)
     grep -q 'Authority=Developer ID Application:' <<<"$SIGNATURE_INFO" || { echo 'Expected Developer ID Application signature.' >&2; exit 1; }
     grep -Eq 'flags=.*runtime' <<<"$SIGNATURE_INFO" || { echo 'Expected hardened runtime flag.' >&2; exit 1; }
+    grep -q '^Timestamp=' <<<"$SIGNATURE_INFO" || { echo 'Expected a secure signing timestamp.' >&2; exit 1; }
+    TEAM_ID="$(sed -n 's/^TeamIdentifier=//p' <<<"$SIGNATURE_INFO" | head -n1)"
+    [[ -n "$TEAM_ID" && "$TEAM_ID" != "not set" ]] || { echo 'Expected a Developer ID TeamIdentifier.' >&2; exit 1; }
     spctl --assess --type execute --verbose=4 "$APP_PATH"
     xcrun stapler validate "$APP_PATH"
     ;;
