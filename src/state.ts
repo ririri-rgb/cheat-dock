@@ -2,7 +2,7 @@ import type { AppState, CheatItem, CheatKind, CheatSection, CheatSheet, Localize
 import { EMPTY_STATE } from './model.ts';
 
 const RECENT_LIMIT = 7;
-const STORAGE_KEY = 'cheat-dock-state-v1';
+export const STORAGE_KEY = 'cheat-dock-state-v1';
 const KINDS = new Set<CheatKind>(['shortcut', 'command', 'operation', 'procedure', 'snippet']);
 const ID_RE = /^[\p{L}\p{N}][\p{L}\p{N}-]{0,79}$/u;
 const MAX_TEXT = 20_000;
@@ -153,9 +153,13 @@ export function sanitizeState(value: unknown): AppState {
   };
 }
 
+export function rawState(storage: Pick<Storage, 'getItem'>): string | null {
+  return storage.getItem(STORAGE_KEY);
+}
+
 export function loadState(storage: Pick<Storage, 'getItem'>): AppState {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    const raw = rawState(storage);
     if (!raw) return structuredClone(EMPTY_STATE);
     return sanitizeState(JSON.parse(raw));
   } catch {
@@ -165,6 +169,14 @@ export function loadState(storage: Pick<Storage, 'getItem'>): AppState {
 
 export function saveState(storage: Pick<Storage, 'setItem'>, state: AppState): void {
   storage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+export function uiOnlyState(state: AppState): AppState {
+  return { ...state, userSheets: [], overlays: {} };
+}
+
+export function saveUiState(storage: Pick<Storage, 'setItem'>, state: AppState): void {
+  saveState(storage, uiOnlyState(state));
 }
 
 export function recordRecent(state: AppState, sheetId: string, itemId: string): AppState {

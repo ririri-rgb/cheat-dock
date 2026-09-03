@@ -22,6 +22,36 @@ function localizedTitleValues(value: LocalizedTitles | undefined): string[] {
   return Object.values(value ?? {}).filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
 }
 
+function isLatinAlphanumericToken(token: string): boolean {
+  return /^[\p{Script=Latin}\p{N}]+$/u.test(token);
+}
+
+export function isShortLatinToken(token: string): boolean {
+  const value = normalize(token);
+  return Array.from(value).length > 0 && Array.from(value).length <= 2 && isLatinAlphanumericToken(value);
+}
+
+function weakWords(value: string): string[] {
+  return normalize(value).match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+export function matchWeakProseField(value: string, token: string): boolean {
+  const normalizedToken = normalize(token);
+  if (!normalizedToken) return false;
+
+  if (isLatinAlphanumericToken(normalizedToken)) {
+    const words = weakWords(value);
+    if (isShortLatinToken(normalizedToken)) {
+      return words.some((word) => word === normalizedToken);
+    }
+    return words.some((word) => word === normalizedToken || word.startsWith(normalizedToken));
+  }
+
+  // CJK and other non-Latin queries keep the existing substring behavior;
+  // short queries are meaningful in languages that do not use spaces as word boundaries.
+  return normalize(value).includes(normalizedToken);
+}
+
 export function searchSheets(sheets: CheatSheet[], query: string, locale: SupportedLocale = 'en'): SearchHit[] {
   const queryTokens = tokens(query);
   if (!queryTokens.length) return [];
@@ -34,16 +64,17 @@ export function searchSheets(sheets: CheatSheet[], query: string, locale: Suppor
         const titleCandidates = Array.from(new Set([item.title, ...localizedTitleValues(item.localizedTitles)].map(normalize).filter(Boolean)));
         const aliases = item.aliases.map(normalize);
         const tags = item.tags.map(normalize);
-        const rest = normalize([
+        const primaryValues = [item.command, item.shortcut]
+          .filter((value): value is string => typeof value === 'string' && value.length > 0)
+          .map(normalize);
+        const weakFields = [
           item.description,
-          item.command,
-          item.shortcut,
           item.body,
           sheet.title,
           ...localizedTitleValues(sheet.localizedTitles),
           section.title,
           ...localizedTitleValues(section.localizedTitles)
-        ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' '));
+        ].filter((value): value is string => typeof value === 'string' && value.length > 0);
 
         let score = 0;
         let matched = true;
@@ -55,7 +86,8 @@ export function searchSheets(sheets: CheatSheet[], query: string, locale: Suppor
           else if (aliases.some((value) => value === token)) score += 7;
           else if (aliases.some((value) => value.includes(token))) score += 5;
           else if (tags.some((value) => value.includes(token))) score += 4;
-          else if (rest.includes(token)) score += 2;
+          else if (primaryValues.some((value) => value.includes(token))) score += 4;
+          else if (weakFields.some((value) => matchWeakProseField(value, token))) score += 2;
           else { matched = false; break; }
         }
 

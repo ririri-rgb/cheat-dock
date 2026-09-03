@@ -7,6 +7,7 @@ export type ItemLayout = 'compact' | 'wide' | 'full';
 export interface CompactItemView {
   label: string;
   value?: string;
+  rawValue?: string;
   valueKind?: 'shortcut' | 'command';
   layout: ItemLayout;
 }
@@ -17,6 +18,39 @@ export interface RecentItemView {
   view: CompactItemView;
 }
 
+export interface PrimaryItemValue {
+  valueKind: 'shortcut' | 'command';
+  rawValue: string;
+  compatibilityFallback: boolean;
+}
+
+function presentValue(raw: string | undefined): string | undefined {
+  return raw && raw.trim() ? raw : undefined;
+}
+
+export function primaryItemValue(item: CheatItem): PrimaryItemValue | undefined {
+  const shortcut = presentValue(item.shortcut);
+  const command = presentValue(item.command);
+
+  if (item.kind === 'shortcut') {
+    if (shortcut) return { valueKind: 'shortcut', rawValue: shortcut, compatibilityFallback: false };
+    if (command) return { valueKind: 'command', rawValue: command, compatibilityFallback: true };
+    return undefined;
+  }
+
+  if (item.kind === 'command') {
+    if (command) return { valueKind: 'command', rawValue: command, compatibilityFallback: false };
+    if (shortcut) return { valueKind: 'shortcut', rawValue: shortcut, compatibilityFallback: true };
+    return undefined;
+  }
+
+  // operation/procedure/snippet remain schema-compatible. Their historical value fields are
+  // treated as compatibility data; textual command data stays literal if present.
+  if (command) return { valueKind: 'command', rawValue: command, compatibilityFallback: true };
+  if (shortcut) return { valueKind: 'shortcut', rawValue: shortcut, compatibilityFallback: true };
+  return undefined;
+}
+
 export function gridColumnsForWidth(width: number): 1 | 2 | 3 {
   if (width <= 440) return 1;
   if (width <= 620) return 2;
@@ -24,8 +58,9 @@ export function gridColumnsForWidth(width: number): 1 | 2 | 3 {
 }
 
 export function itemLayout(item: CheatItem): ItemLayout {
-  if (item.shortcut) return 'compact';
-  const commandLength = item.command?.trim().length ?? 0;
+  const primary = primaryItemValue(item);
+  if (primary?.valueKind === 'shortcut') return 'compact';
+  const commandLength = primary?.valueKind === 'command' ? primary.rawValue.length : 0;
   if (commandLength >= 58) return 'full';
   if (commandLength >= 24) return 'wide';
   return 'compact';
@@ -33,9 +68,24 @@ export function itemLayout(item: CheatItem): ItemLayout {
 
 export function compactItemView(item: CheatItem, locale: SupportedLocale): CompactItemView {
   const layout = itemLayout(item);
-  if (item.shortcut) return { label: itemLabel(item, locale), value: formatMacShortcut(item.shortcut), valueKind: 'shortcut', layout };
-  if (item.command) return { label: itemLabel(item, locale), value: item.command, valueKind: 'command', layout };
-  return { label: itemLabel(item, locale), layout };
+  const primary = primaryItemValue(item);
+  if (!primary) return { label: itemLabel(item, locale), layout };
+  if (primary.valueKind === 'shortcut') {
+    return {
+      label: itemLabel(item, locale),
+      value: formatMacShortcut(primary.rawValue),
+      rawValue: primary.rawValue,
+      valueKind: 'shortcut',
+      layout
+    };
+  }
+  return {
+    label: itemLabel(item, locale),
+    value: primary.rawValue,
+    rawValue: primary.rawValue,
+    valueKind: 'command',
+    layout
+  };
 }
 
 export function recentItemViews(sheet: CheatSheet, recentIds: readonly string[], locale: SupportedLocale): RecentItemView[] {

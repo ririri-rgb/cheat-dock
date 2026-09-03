@@ -1,8 +1,11 @@
-import type { AppState, CheatItem, CheatSection } from './model.ts';
+import type { AppState, CheatItem, CheatKind, CheatSection } from './model.ts';
+
+export type EditableItemKind = Extract<CheatKind, 'shortcut' | 'command'>;
 
 export interface ItemDraft {
   title: string;
   section: string;
+  kind: EditableItemKind;
   shortcut: string;
   command: string;
   description: string;
@@ -12,21 +15,48 @@ function normalizeLabel(value: string): string {
   return value.normalize('NFKC').replace(/\s+/g, ' ').trim();
 }
 
-function optional(value: string): string | undefined {
+function optionalShortcut(value: string): string | undefined {
   const trimmed = value.normalize('NFKC').trim();
   return trimmed || undefined;
 }
 
+function optionalLiteral(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+export function isEditableItemKind(kind: CheatKind): kind is EditableItemKind {
+  return kind === 'shortcut' || kind === 'command';
+}
+
+export function editorKindForItem(item?: CheatItem): EditableItemKind {
+  if (!item) return 'shortcut';
+  if (isEditableItemKind(item.kind)) return item.kind;
+  if (item.command && !item.shortcut) return 'command';
+  return 'shortcut';
+}
+
+export function inactiveItemValueWarning(
+  kind: EditableItemKind,
+  shortcut: string,
+  command: string
+): string | undefined {
+  const inactiveLabel = kind === 'shortcut' ? 'Command' : 'Shortcut';
+  const inactiveValue = kind === 'shortcut' ? command : shortcut;
+  if (!inactiveValue.trim()) return undefined;
+  return `Saving as ${kind === 'shortcut' ? 'Shortcut' : 'Command'} will remove the ${inactiveLabel} value.`;
+}
+
 export function normalizeItemDraft(draft: ItemDraft): ItemDraft | null {
   const title = normalizeLabel(draft.title);
+  const section = normalizeLabel(draft.section) || 'Personal';
+  const shortcut = optionalShortcut(draft.shortcut) ?? '';
+  const command = optionalLiteral(draft.command) ?? '';
+  const description = optionalLiteral(draft.description) ?? '';
   if (!title) return null;
-  return {
-    title,
-    section: normalizeLabel(draft.section) || 'Personal',
-    shortcut: optional(draft.shortcut) ?? '',
-    command: optional(draft.command) ?? '',
-    description: optional(draft.description) ?? ''
-  };
+  if (draft.kind === 'shortcut' && !shortcut) return null;
+  if (draft.kind === 'command' && !command) return null;
+  return { title, section, kind: draft.kind, shortcut, command, description };
 }
 
 export function sectionIdForTitle(title: string): string {
@@ -36,13 +66,14 @@ export function sectionIdForTitle(title: string): string {
 export function itemFromDraft(id: string, draft: ItemDraft, base?: CheatItem): CheatItem | null {
   const normalized = normalizeItemDraft(draft);
   if (!normalized) return null;
+  const { shortcut: _oldShortcut, command: _oldCommand, ...baseWithoutPrimaryValues } = base ?? {} as CheatItem;
   return {
-    ...base,
+    ...baseWithoutPrimaryValues,
     id,
     title: normalized.title,
-    kind: normalized.command ? 'command' : normalized.shortcut ? 'shortcut' : base?.kind ?? 'operation',
-    shortcut: normalized.shortcut || undefined,
-    command: normalized.command || undefined,
+    kind: normalized.kind,
+    shortcut: normalized.kind === 'shortcut' ? normalized.shortcut : undefined,
+    command: normalized.kind === 'command' ? normalized.command : undefined,
     description: normalized.description || undefined,
     aliases: base?.aliases ?? [],
     tags: base?.tags ?? [],
