@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: macos-release-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   production-universal:
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'chore/macos-release-qualification'
