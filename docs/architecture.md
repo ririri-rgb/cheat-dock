@@ -24,7 +24,7 @@ Pins, Recently viewed, expanded sections, and similar UI state remain in validat
 
 ## Item semantics: `kind` is authoritative
 
-The existing `kind` field is the single item type system. PR #6 does not add a second `type` field. Supported schema kinds remain `shortcut`, `command`, `operation`, `procedure`, and `snippet`.
+The existing `kind` field is the single item type system. The schema does not add a second `type` field. Supported schema kinds remain `shortcut`, `command`, `operation`, `procedure`, and `snippet`.
 
 For the compact GUI editor, creation/editing currently focuses on `shortcut` and `command`:
 
@@ -35,7 +35,7 @@ Presentation resolves the primary value from `kind`, not from whichever field ha
 
 New GUI saves enforce one primary field: Shortcut saves remove `command`; Command saves remove `shortcut`. The editor keeps hidden values in memory while switching Type and shows a compact warning whenever Save would remove an inactive value. Loading/reloading legacy mixed Markdown never performs that cleanup automatically.
 
-Existing `operation` / `procedure` / `snippet` Markdown remains valid. Their GUI editing is intentionally not expanded in this PR; direct Markdown editing remains available.
+Existing `operation` / `procedure` / `snippet` Markdown remains valid. Their GUI editing is intentionally not expanded; direct Markdown editing remains available.
 
 ## Markdown schema and loading
 
@@ -79,7 +79,7 @@ The storage layer is atomic per document, not a multi-file database transaction.
 
 ## External editing and concurrency
 
-Files are re-read at app initialization and whenever the menu-bar popup opens; Reload Files provides an explicit recovery path. PR #6 does not add a file watcher.
+Files are re-read at app initialization and whenever the menu-bar popup opens; Reload Files provides an explicit recovery path. There is no file watcher.
 
 Each loaded file retains its exact raw content. Before GUI write/delete, Rust compares disk content with that expected revision. A mismatch returns `conflict` and does not write. The session intentionally keeps its stale pre-save revision until the user explicitly reloads, so repeatedly pressing Save cannot silently convert a conflict into an overwrite.
 
@@ -87,7 +87,7 @@ Change detection is semantic per document. If an external editor merely changes 
 
 ## localStorage migration
 
-Legacy PR #1 content migrates once, conservatively:
+Legacy foundation content migrates once, conservatively:
 
 1. sanitize/load legacy localStorage state;
 2. load existing user Markdown;
@@ -123,10 +123,23 @@ IME composition does not cause root re-render until composition commits. English
 
 At default width short items target three columns; medium/narrow widths fall back to two/one, and long literal commands may span wide/full rows.
 
-## Reproducibility, security and distribution
+## Reproducibility, security and macOS distribution
 
-`package-lock.json`, `src-tauri/Cargo.lock`, and `rust-toolchain.toml` are committed. CI uses `npm ci`, frontend tests/build, and `cargo test --locked` on macOS.
+`package-lock.json`, `src-tauri/Cargo.lock`, and `rust-toolchain.toml` are committed. CI uses `npm ci`, frontend tests/build, release-identity validation, and `cargo test --locked` on macOS.
 
-No AI, cloud, telemetry, account, arbitrary command execution, global shortcut permission, Accessibility permission, or `macos-private-api` is enabled. User-authored text is escaped and not executed as HTML.
+The macOS release identity is deliberately stable:
 
-Signing/notarization and formal v0.1 release remain later phases.
+- `productName`: `Cheat Dock`;
+- package/executable: `cheat-dock`;
+- bundle identifier: `dev.cheatdock.app`;
+- candidate version: `0.1.0`, authoritative in `src-tauri/tauri.conf.json` and mirrored into npm/lock/Cargo metadata;
+- explicit minimum macOS: `10.15`;
+- distribution target: universal `arm64 + x86_64` `.app` packaged in DMG.
+
+The bundle identifier is also the Application Support identity used by Tauri's `app_data_dir`; changing it without a migration would strand existing file-backed user data, so the identifier is frozen for v0.1.
+
+Release qualification uses two lanes. Pull-request CI performs a real universal production build with ad-hoc signing, inspects the generated Info.plist and executable slices, verifies the code signature and DMG contents, and retains only a short-lived Actions artifact. A manual protected `macos-release` environment is prepared for Developer ID Application signing and Apple notarization. Signing certificates and App Store Connect keys are never committed.
+
+Hardened Runtime is explicitly enabled and no custom entitlements are currently required. The release gate additionally requires Gatekeeper/stapling validation and physical fresh-install/upgrade/data-retention qualification on the exact notarized candidate artifact. See `docs/macos-release-qualification.md`.
+
+No AI, cloud, telemetry, account, arbitrary command execution, global shortcut permission, Accessibility permission, updater, or `macos-private-api` is enabled. User-authored text is escaped and not executed as HTML.
