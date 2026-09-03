@@ -87,7 +87,7 @@ Current reviewed pins:
 | --- | --- | --- |
 | `actions/checkout` | `v7.0.1` | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
 | `actions/setup-node` | `v7.0.0` | `820762786026740c76f36085b0efc47a31fe5020` |
-| `actions/upload-artifact` | `v4.6.2` | `ea165f8d65b6e75b540449e92b4886f43607fa02` |
+| `actions/upload-artifact` | `v7.0.1` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` |
 | `dtolnay/rust-toolchain` | reviewed `master` snapshot, 2026-08-05 | `6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772` |
 
 `dtolnay/rust-toolchain` is intentionally pinned to a commit in `master` history, as its upstream documentation requires for full-SHA pinning. The workflow separately passes `toolchain: stable`, so the immutable Action implementation and the repository's Rust `stable` toolchain policy are independent.
