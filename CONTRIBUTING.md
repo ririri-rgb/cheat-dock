@@ -57,7 +57,7 @@ Keyboard capture is explicit and scoped to the Record control in the item dialog
 
 See `docs/macos-release-qualification.md` before changing packaging, bundle identity, minimum macOS version, signing, entitlements, or release workflows.
 
-Public macOS artifacts must eventually be Developer ID signed and notarized. Ad-hoc CI bundles are qualification artifacts only. Never commit signing certificates, `.p12` files, App Store Connect private keys, Apple IDs/passwords, or other release credentials. Do not create tags or GitHub Releases as part of an ordinary implementation PR.
+For v0.1, the public GitHub Release uses an ad-hoc signed universal macOS build. It is not Developer ID signed and is not Apple-notarized. Developer ID signing and notarization remain an optional future distribution lane. Do not describe the v0.1 build as unsigned, Apple signed, Apple verified, notarized, trusted by Gatekeeper, or malware-checked by Apple. Never commit signing certificates, `.p12` files, App Store Connect private keys, Apple IDs/passwords, or other release credentials. Do not create tags or GitHub Releases as part of an ordinary implementation PR.
 
 ## Pull requests
 

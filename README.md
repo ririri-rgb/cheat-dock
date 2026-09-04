@@ -6,9 +6,9 @@
 
 ## Project status
 
-The usable macOS foundation, file-backed personal-data work, universal `arm64 + x86_64` production packaging, and physical macOS qualification baseline are complete on `main`. The baseline at `b10881fefbdaf72d80fb50fdd17b7af07014c719` passed browser-download/Gatekeeper, fresh-install, persistence, upgrade/data-retention, Markdown filename/hash retention, post-upgrade edit/restart, uninstall/reinstall retention, and DMG visual qualification.
+The v0.1 implementation, file-backed personal-data work, curated bundled starter content, universal `arm64 + x86_64` production packaging, normal CI/release qualification, and required physical macOS qualification are complete. The currently qualified candidate has passed browser-download/Gatekeeper, fresh-install, persistence, upgrade/data-retention, Markdown filename/hash retention, post-upgrade edit/restart, uninstall/reinstall retention, starter-content smoke, and DMG visual qualification.
 
-The current release-readiness phase is the final v0.1 starter-content and documentation pass. Because bundled cheat content is release-relevant, merging content changes means the previously qualified `b10881f...` candidate remains historical qualification evidence but **must not** be published as the final v0.1 artifact. After the content change lands, the project must freeze the new `main` SHA, generate a new manual production candidate, freeze its exact artifact/checksums, and repeat the required physical qualification on that new artifact.
+The project is currently awaiting final release authorization. This documentation-only blocker fix does not change the app binary, build, signing policy, or qualified artifact; however, if it is merged, the new `main` SHA must become the next release source and a fresh exact candidate must be generated and requalified before publication.
 
 There is **no public v0.1 release yet**. No `v0.1.0` tag or GitHub Release exists.
 
