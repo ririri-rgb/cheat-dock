@@ -140,7 +140,7 @@ Repeats the most recent search in the same direction.
 - id: write
 - title-ja: 保存
 - kind: operation
-- shortcut: :w
+- command: :w
 - aliases: write file, save, 保存
 - tags: file, command-line
 - source: https://vimhelp.org/editing.txt.html
@@ -150,7 +150,7 @@ Writes the current buffer to its file.
 - id: quit
 - title-ja: 終了
 - kind: operation
-- shortcut: :q
+- command: :q
 - aliases: quit editor, exit, 終了
 - tags: file, command-line
 - source: https://vimhelp.org/editing.txt.html
