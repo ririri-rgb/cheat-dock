@@ -109,11 +109,11 @@ Finds pathnames whose final component matches the supplied name pattern.
 - id: process-list
 - title-ja: プロセス一覧
 - kind: command
-- command: ps aux
+- command: ps -ef
 - aliases: processes, process list, プロセス
 - tags: process, inspect
-- source: https://man.freebsd.org/cgi/man.cgi?query=ps&sektion=1
-Shows a detailed process listing useful for identifying running programs and process IDs.
+- source: https://pubs.opengroup.org/onlinepubs/9799919799/utilities/ps.html
+Shows a full-format process listing useful for identifying running programs and process IDs.
 
 ### Stop a process by PID
 - id: kill-process
