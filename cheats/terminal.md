@@ -83,15 +83,15 @@ Moves a file or directory, and is also commonly used to rename it.
 
 ## Search and inspect
 
-### Search text recursively
-- id: grep-recursive
-- title-ja: テキストを再帰検索
+### Search text in a file
+- id: grep-file
+- title-ja: ファイル内のテキストを検索
 - kind: command
-- command: grep -R "<pattern>" <path>
+- command: grep "<pattern>" <file>
 - aliases: search text, grep, 文字列検索
 - tags: search, text
 - source: https://pubs.opengroup.org/onlinepubs/9799919799/utilities/grep.html
-Searches files under a path recursively for matching text.
+Searches a file for lines matching the supplied pattern.
 
 ### Find files by name
 - id: find-name
