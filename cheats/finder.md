@@ -177,15 +177,15 @@ Opens the current user's Home folder.
 - source: https://support.apple.com/en-us/102650
 Opens the Desktop folder.
 
-### Open Applications
-- id: open-applications
-- title-ja: アプリケーションを開く
+### Open Documents
+- id: open-documents
+- title-ja: 書類フォルダを開く
 - kind: shortcut
-- shortcut: Shift + Command + A
-- aliases: applications folder, apps, アプリケーション
+- shortcut: Shift + Command + O
+- aliases: documents folder, documents, 書類, ドキュメント
 - tags: navigation, location
 - source: https://support.apple.com/en-us/102650
-Opens the Applications folder.
+Opens the Documents folder.
 
 ## Views
 - title-ja: 表示
