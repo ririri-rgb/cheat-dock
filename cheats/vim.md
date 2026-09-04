@@ -9,6 +9,7 @@ related: terminal
 ---
 
 ## Movement
+- title-ja: 移動
 
 ### Move left
 - id: move-left
@@ -50,6 +51,46 @@ In Normal mode, moves the cursor up one line.
 - source: https://vimhelp.org/motion.txt.html
 In Normal mode, moves the cursor one character to the right.
 
+### Next word
+- id: next-word
+- title-ja: 次の単語へ
+- kind: operation
+- shortcut: w
+- aliases: next word, word forward, 次の単語, 単語移動
+- tags: movement, normal-mode
+- source: https://vimhelp.org/motion.txt.html
+Moves to the start of the next word in Normal mode.
+
+### Previous word
+- id: previous-word
+- title-ja: 前の単語へ
+- kind: operation
+- shortcut: b
+- aliases: previous word, word backward, 前の単語, 単語移動
+- tags: movement, normal-mode
+- source: https://vimhelp.org/motion.txt.html
+Moves to the start of the previous word in Normal mode.
+
+### Start of line
+- id: line-start
+- title-ja: 行頭へ
+- kind: operation
+- shortcut: 0
+- aliases: start of line, line beginning, 行頭, 先頭
+- tags: movement, normal-mode
+- source: https://vimhelp.org/motion.txt.html
+Moves to the first character position of the current line.
+
+### End of line
+- id: line-end
+- title-ja: 行末へ
+- kind: operation
+- shortcut: $
+- aliases: end of line, line ending, 行末, 末尾
+- tags: movement, normal-mode
+- source: https://vimhelp.org/motion.txt.html
+Moves to the end of the current line.
+
 ### First line
 - id: first-line
 - title-ja: ファイル先頭へ
@@ -71,6 +112,7 @@ Moves to the first line of the buffer.
 Moves to the last line of the buffer.
 
 ## Editing
+- title-ja: 編集
 
 ### Enter Insert mode
 - id: insert-mode
@@ -91,6 +133,46 @@ Enters Insert mode before the cursor.
 - tags: editing, mode
 - source: https://vimhelp.org/insert.txt.html
 Leaves Insert mode and returns to Normal mode.
+
+### Delete current line
+- id: delete-line
+- title-ja: 現在行を削除
+- kind: operation
+- shortcut: dd
+- aliases: delete line, cut line, 行削除, 1行削除
+- tags: editing, normal-mode
+- source: https://vimhelp.org/change.txt.html
+Deletes the current line into a register; the change can be undone with `u`.
+
+### Yank current line
+- id: yank-line
+- title-ja: 現在行をヤンク
+- kind: operation
+- shortcut: yy
+- aliases: copy line, yank line, 行コピー, ヤンク
+- tags: editing, register
+- source: https://vimhelp.org/change.txt.html
+Yanks the current line into a register without changing the buffer.
+
+### Paste after cursor
+- id: paste-after
+- title-ja: カーソル後へ貼り付け
+- kind: operation
+- shortcut: p
+- aliases: paste, put, 貼り付け, ペースト
+- tags: editing, register
+- source: https://vimhelp.org/change.txt.html
+Puts the contents of a register after the cursor or below the current line.
+
+### Change inner word
+- id: change-inner-word
+- title-ja: 単語の中身を置き換える
+- kind: operation
+- shortcut: ciw
+- aliases: change word, replace word, 単語置換, 単語編集
+- tags: editing, text-object
+- source: https://vimhelp.org/change.txt.html
+Deletes the current word's inner text and enters Insert mode so you can replace it.
 
 ### Undo
 - id: undo
@@ -113,6 +195,7 @@ Undoes the most recent change in Normal mode.
 Redoes a change that was undone.
 
 ## Search
+- title-ja: 検索と置換
 
 ### Search forward
 - id: search-forward
@@ -134,7 +217,28 @@ Starts a forward search; type a pattern and press Enter.
 - source: https://vimhelp.org/pattern.txt.html
 Repeats the most recent search in the same direction.
 
+### Search word under cursor
+- id: search-current-word
+- title-ja: カーソル下の単語を検索
+- kind: operation
+- shortcut: *
+- aliases: search current word, word search, 単語検索, カーソル下
+- tags: search, normal-mode
+- source: https://vimhelp.org/pattern.txt.html
+Searches forward for the word currently under or after the cursor.
+
+### Replace all matches in buffer
+- id: replace-all
+- title-ja: バッファ全体で置換
+- kind: operation
+- command: :%s/<old>/<new>/g
+- aliases: substitute all, replace all, 置換, 全置換
+- tags: search, editing
+- source: https://vimhelp.org/change.txt.html
+Replaces every match of the supplied pattern in the current buffer; use `u` to undo the change if needed.
+
 ## Save and quit
+- title-ja: 保存と終了
 
 ### Save
 - id: write
