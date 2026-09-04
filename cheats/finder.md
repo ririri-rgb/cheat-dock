@@ -69,18 +69,18 @@ Opens the Get Info window for the selected item.
 - shortcut: Space
 - aliases: preview, quick preview, プレビュー
 - tags: inspect, preview
-- source: https://support.apple.com/en-us/102650
+- source: https://support.apple.com/guide/mac-help/mh14119/mac
 Previews the selected item without opening its app.
 
-### Move to Trash
-- id: move-to-trash
-- title-ja: ゴミ箱に入れる
+### Duplicate selected files
+- id: duplicate-files
+- title-ja: 選択ファイルを複製
 - kind: shortcut
-- shortcut: Command + Delete
-- aliases: trash, remove file, ゴミ箱
-- tags: files, trash
+- shortcut: Command + D
+- aliases: duplicate, copy files, 複製
+- tags: files, copy
 - source: https://support.apple.com/en-us/102650
-Moves the selected item to the Trash; it does not immediately empty the Trash.
+Creates duplicates of the selected files.
 
 ## Locations
 
